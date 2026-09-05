@@ -22,6 +22,7 @@ feedback_log.json
 # *.pt
 *.pth
 *.onnx
+weights/
 
 # Datos/datasets
 *.csv
