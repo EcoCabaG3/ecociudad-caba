@@ -1,6 +1,3 @@
-"""
-utils_vision.py - Deteccion, analisis espacial y clasificacion de residuos EcoCiudad CABA
-"""
 import os
 import math
 import cv2
@@ -113,20 +110,27 @@ MODEL_PATHS = {
     "yolov8s_world": "yolov8s-worldv2.pt",
 }
 
-
 @st.cache_resource(show_spinner="Cargando modelo de IA...")
 def load_model(model_key: str = "waste_specialized") -> YOLO:
     path = MODEL_PATHS.get(model_key, "models/waste_yolov8.pt")
     if not os.path.exists(path) and model_key == "waste_specialized":
         path = "yolov8n.pt"
     model = YOLO(path)
-    if "world" in path:
-        model.set_classes([
-            "compact disc", "cd", "cardboard box", "cardboard", "plastic bottle",
-            "aluminum can", "glass bottle", "paper", "tin can", "tetra pak", "cell phone", "battery", "toner cartridge"
-        ])
+    if "world" in str(path):
+        try:
+            model.set_classes([
+                "plastic bottle", "glass bottle", "bottle",
+                "cup", "plastic cup", "disposable cup",
+                "aluminum can", "tin can", "can",
+                "jar", "plastic jar", "pot", "plastic container",
+                "vape", "vape pen", "electronic cigarette",
+                "cell phone", "battery",
+                "cardboard box", "cardboard", "paper",
+                "compact disc", "cd", "tetra pak"
+            ])
+        except Exception as e:
+            print(f"Aviso: no se pudo cargar CLIP para set_classes ({e}), usando clases por defecto.")
     return model
-
 
 def get_waste_info(class_name: str) -> dict | None:
     norm = class_name.lower().strip()
