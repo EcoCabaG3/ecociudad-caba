@@ -6,7 +6,6 @@ import base64
 from pathlib import Path
 
 import av
-import cv2
 import pandas as pd
 import numpy as np
 import streamlit as st
