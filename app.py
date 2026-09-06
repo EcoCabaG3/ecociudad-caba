@@ -607,7 +607,7 @@ with col_main:
 </div>
 """, unsafe_allow_html=True)
             else:
-                frame_bgr = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+                frame_bgr = frame_bgr = np.array(img_pil)[:, :, ::-1].copy()
                 annotated_bgr, detections = run_inference(
                     model,
                     frame_bgr,
@@ -615,7 +615,7 @@ with col_main:
                     filter_people=FILTER_PEOPLE,
                     feedback_store=fb_store,
                 )
-                annotated_rgb = cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB)
+                annotated_rgb = annotated_bgr[:, :, ::-1].copy()
                 st.image(annotated_rgb, use_container_width=True)
 
                 if not detections:
