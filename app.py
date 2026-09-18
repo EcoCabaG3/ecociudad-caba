@@ -2,6 +2,7 @@
 app.py - EcoCiudad CABA - Scanner de Residuos con IA y Red de Puntos Verdes
 Tecnicatura en Ciencia de Datos e IA - IFTS N° 11
 """
+import time
 import base64
 from pathlib import Path
 
@@ -13,7 +14,7 @@ import pydeck as pdk
 from PIL import Image
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
 
-from utils_vision import load_model, run_inference
+from utils_vision import load_model, run_inference, draw_detections
 from feedback_store import load_feedback, add_correction, get_total_corrections
 from puntos_verdes_data import PUNTOS_VERDES_LIST, CENTROS_VERDES_LIST, CATEGORIAS_OFICIALES_GCBA
 
@@ -538,10 +539,6 @@ with col_main:
 
         RTC_CONFIG = RTCConfiguration({"iceServers": [
             {"urls": ["stun:stun.l.google.com:19302"]},
-            {"urls": ["stun:stun1.l.google.com:19302"]},
-            {"urls": ["stun:stun2.l.google.com:19302"]},
-            {"urls": ["stun:stun.cloudflare.com:3478"]},
-            {"urls": ["stun:stun.services.mozilla.com"]},
         ]})
 
         RTC_TRANSLATIONS = {
@@ -554,16 +551,36 @@ with col_main:
             "device_access_denied": "Acceso a la cámara denegado.",
         }
 
+        # Control de FPS para no saturar CPU ni memoria en Streamlit Cloud (1 vCPU, 1GB RAM)
+        # La inferencia YOLO se ejecuta como máximo cada ~350ms (~2.8 FPS de IA)
+        # mientras los cuadros intermedios reutilizan las etiquetas a 30 FPS fluidos.
+        throttle_state = {
+            "last_inference": 0.0,
+            "cached_detections": [],
+        }
+
         def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-            img_bgr = frame.to_ndarray(format="bgr24")
-            annotated, _ = run_inference(
-                model,
-                img_bgr,
-                conf_threshold=CONF_THRESH,
-                filter_people=FILTER_PEOPLE,
-                feedback_store=fb_store,
-            )
-            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+            try:
+                img_bgr = frame.to_ndarray(format="bgr24")
+                now = time.time()
+
+                if now - throttle_state["last_inference"] >= 0.35:
+                    throttle_state["last_inference"] = now
+                    _, detections = run_inference(
+                        model,
+                        img_bgr,
+                        conf_threshold=CONF_THRESH,
+                        filter_people=FILTER_PEOPLE,
+                        feedback_store=fb_store,
+                    )
+                    throttle_state["cached_detections"] = detections
+
+                if throttle_state["cached_detections"]:
+                    annotated = draw_detections(img_bgr, throttle_state["cached_detections"])
+                    return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+                return frame
+            except Exception:
+                return frame
 
         webrtc_streamer(
             key=f"stream-{model_choice}",
@@ -571,27 +588,39 @@ with col_main:
             rtc_configuration=RTC_CONFIG,
             video_frame_callback=video_frame_callback,
             media_stream_constraints={"video": True, "audio": False},
-            desired_playing_state=True,
+            desired_playing_state=None,
             async_processing=True,
             translations=RTC_TRANSLATIONS,
         )
-        st.caption("💡 Para escanear varios residuos a la vez o corregir materiales para que el sistema aprenda, usá la pestaña 'Subir Archivo / Foto'.")
+        st.caption("💡 Si tu conexión o navegador restringe WebRTC, podés usar la pestaña 'Subir Archivo / Foto' para capturar una foto instantánea con tu cámara.")
 
 
+    # ═══════════════════════════════════════════════════════════════════════════
     # TAB 2 — Foto / Archivo (Carga de imágenes sin conflicto de cámara)
+    # ═══════════════════════════════════════════════════════════════════════════
     with tab_photo:
         col_in, col_out = st.columns([1, 1], gap="large")
 
         with col_in:
-            st.subheader("📥 Carga de Archivo de Imagen")
-            uploaded = st.file_uploader(
-                "Subir o arrastrar foto de tus residuos:",
-                type=["jpg", "jpeg", "png", "webp", "bmp"],
-                help="Soporta fotos con 1 o múltiples residuos simultáneos"
+            st.subheader("📥 Carga de Archivo o Foto")
+            input_mode = st.radio(
+                "Elegí el método de captura:",
+                ["📁 Subir Archivo", "📸 Tomar Foto Instantánea"],
+                horizontal=True
             )
             img_pil = None
-            if uploaded:
-                img_pil = Image.open(uploaded).convert("RGB")
+            if input_mode == "📁 Subir Archivo":
+                uploaded = st.file_uploader(
+                    "Subir o arrastrar foto de tus residuos:",
+                    type=["jpg", "jpeg", "png", "webp", "bmp"],
+                    help="Soporta fotos con 1 o múltiples residuos simultáneos"
+                )
+                if uploaded:
+                    img_pil = Image.open(uploaded).convert("RGB")
+            else:
+                cam_shot = st.camera_input("Sacá una foto clara de tus residuos:")
+                if cam_shot:
+                    img_pil = Image.open(cam_shot).convert("RGB")
 
         with col_out:
             st.subheader("🔍 Diagnóstico Multi-Residuo")
@@ -607,7 +636,7 @@ with col_main:
 </div>
 """, unsafe_allow_html=True)
             else:
-                frame_bgr = frame_bgr = np.array(img_pil)[:, :, ::-1].copy()
+                frame_bgr = np.array(img_pil)[:, :, ::-1].copy()
                 annotated_bgr, detections = run_inference(
                     model,
                     frame_bgr,
