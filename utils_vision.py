@@ -1,9 +1,19 @@
+"""
+utils_vision.py - Deteccion, analisis espacial y clasificacion de residuos EcoCiudad CABA
+"""
 import os
 import math
 import numpy as np
 import streamlit as st
 from ultralytics import YOLO
 from feedback_store import calculate_boosted_confidence
+
+try:
+    import cv2
+    HAS_CV2 = True
+except Exception:
+    cv2 = None
+    HAS_CV2 = False
 
 # ---------------------------------------------------------------------------
 # MAPEO COMPLETO DE RESIDUOS (CABA) - INCLUYE RESIDUOS ESPECIALES GCBA
@@ -19,13 +29,20 @@ WASTE_MAP = {
     "paper":                {"label": "Papel",               "emoji": "📄", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Mantener limpio y seco.", "es_especial": False},
     "book":                 {"label": "Papel / Carton",       "emoji": "📦", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Mantener seco y desarmar la caja.", "es_especial": False},
     
-    # Plasticos (Contenedor Verde)
+    # Plasticos, Envases y Potes (Contenedor Verde)
     "plastic":              {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
     "plastic bottle":       {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
     "pet bottle":           {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
     "bottle":               {"label": "Botella / Plastico",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y aplastar.", "es_especial": False},
     "cup":                  {"label": "Vaso Descartable",     "emoji": "🥤", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos liquidos.", "es_especial": False},
+    "disposable cup":       {"label": "Vaso Descartable",     "emoji": "🥤", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos liquidos.", "es_especial": False},
+    "plastic cup":          {"label": "Vaso Descartable",     "emoji": "🥤", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos liquidos.", "es_especial": False},
     "bowl":                 {"label": "Envase Descartable",   "emoji": "🥣", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos organicos.", "es_especial": False},
+    "jar":                  {"label": "Pote / Frasco Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
+    "plastic jar":          {"label": "Pote / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
+    "pot":                  {"label": "Pote / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
+    "plastic container":    {"label": "Envase / Contenedor",  "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
+    "container":            {"label": "Envase / Contenedor",  "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Al Contenedor Verde.", "es_especial": False},
     "capsule":              {"label": "Capsula de Cafe",      "emoji": "☕", "tipo": "Reciclable / Punto Verde",  "color": (46, 204, 113),  "accion": "Vacia y limpia. En Punto Verde se convierte en madera plastica.", "es_especial": False},
     
     # CDs, DVDs y Discos Plasticos (Policarbonato)
@@ -46,6 +63,10 @@ WASTE_MAP = {
     "steel can":            {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
     
     # RESIDUOS ESPECIALES GCBA (OBLIGATORIO PUNTO VERDE)
+    "vape":                 {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
+    "vape pen":             {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
+    "electronic cigarette": {"label": "Cigarrillo Electronico / Vaper", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo.", "es_especial": True},
+    "e-cigarette":          {"label": "Cigarrillo Electronico / Vaper", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo.", "es_especial": True},
     "e-waste":              {"label": "RAEE / Electronico",   "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo (hasta 10 aparatos por persona).", "es_especial": True},
     "e_waste":              {"label": "RAEE / Electronico",   "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo (hasta 10 aparatos por persona).", "es_especial": True},
     "electronic":           {"label": "RAEE / Electronico",   "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo (hasta 10 aparatos por persona).", "es_especial": True},
@@ -68,23 +89,29 @@ WASTE_MAP = {
 
 # Mapa de subcadenas keyword → clave base en WASTE_MAP (fallback por substring)
 _KEYWORD_FALLBACK = [
+    ("vape",       "vape"),
+    ("pot",        "jar"),
+    ("jar",        "jar"),
+    ("container",  "container"),
+    ("cup",        "cup"),
+    ("bottle",     "bottle"),
+    ("can",        "can"),
+    ("tin",        "tin can"),
+    ("steel",      "steel can"),
+    ("metal",      "metal"),
+    ("glass",      "glass"),
+    ("plastic",    "plastic"),
     ("cardboard",  "cardboard"),
     ("carton",     "cardboard"),
     ("corrugated", "cardboard"),
     ("paper",      "paper"),
-    ("plastic",    "plastic"),
-    ("glass",      "glass"),
-    ("aluminum",   "aluminum can"),
-    ("aluminium",  "aluminum can"),
-    ("tin",        "tin can"),
-    ("steel",      "steel can"),
-    ("metal",      "metal"),
     ("electronic", "electronic"),
     ("circuit",    "circuit"),
     ("battery",    "battery"),
     ("organic",    "organic"),
     ("oil",        "oil"),
 ]
+
 
 # Clases que NUNCA deben marcarse como basura
 IGNORED_CLASSES = {
@@ -109,27 +136,26 @@ MODEL_PATHS = {
     "yolov8s_world": "yolov8s-worldv2.pt",
 }
 
+
 @st.cache_resource(show_spinner="Cargando modelo de IA...")
-def load_model(model_key: str = "waste_specialized") -> YOLO:
-    path = MODEL_PATHS.get(model_key, "models/waste_yolov8.pt")
-    if not os.path.exists(path) and model_key == "waste_specialized":
-        path = "yolov8n.pt"
+def load_model(model_key: str = "yolov8s_world") -> YOLO:
+    path = MODEL_PATHS.get(model_key, "yolov8s-worldv2.pt")
+    if not os.path.exists(path):
+        path = "models/waste_yolov8.pt" if os.path.exists("models/waste_yolov8.pt") else "yolov8n.pt"
     model = YOLO(path)
     if "world" in str(path):
-        try:
-            model.set_classes([
-                "plastic bottle", "glass bottle", "bottle",
-                "cup", "plastic cup", "disposable cup",
-                "aluminum can", "tin can", "can",
-                "jar", "plastic jar", "pot", "plastic container",
-                "vape", "vape pen", "electronic cigarette",
-                "cell phone", "battery",
-                "cardboard box", "cardboard", "paper",
-                "compact disc", "cd", "tetra pak"
-            ])
-        except Exception as e:
-            print(f"Aviso: no se pudo cargar CLIP para set_classes ({e}), usando clases por defecto.")
+        model.set_classes([
+            "plastic bottle", "glass bottle", "bottle",
+            "cup", "plastic cup", "disposable cup",
+            "aluminum can", "tin can", "can",
+            "jar", "plastic jar", "pot", "plastic container",
+            "vape", "vape pen", "electronic cigarette",
+            "cell phone", "battery",
+            "cardboard box", "cardboard", "paper",
+            "compact disc", "cd", "tetra pak"
+        ])
     return model
+
 
 def get_waste_info(class_name: str) -> dict | None:
     norm = class_name.lower().strip()
@@ -198,11 +224,18 @@ def analyze_spatial_and_hand_context(frame_bgr: np.ndarray, bbox: tuple[int, int
     hand_detected = False
 
     if roi.size > 0:
-        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        lower_skin = np.array([0, 35, 45], dtype=np.uint8)
-        upper_skin = np.array([28, 210, 255], dtype=np.uint8)
-        skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
-        skin_ratio = np.count_nonzero(skin_mask) / float(roi.shape[0] * roi.shape[1])
+        if HAS_CV2 and cv2 is not None:
+            hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+            lower_skin = np.array([0, 35, 45], dtype=np.uint8)
+            upper_skin = np.array([28, 210, 255], dtype=np.uint8)
+            skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
+            skin_ratio = np.count_nonzero(skin_mask) / float(roi.shape[0] * roi.shape[1])
+        else:
+            b = roi[:, :, 0].astype(int)
+            g = roi[:, :, 1].astype(int)
+            r = roi[:, :, 2].astype(int)
+            skin_mask = (r > 95) & (g > 40) & (b > 20) & ((r - g) > 15) & (r > b)
+            skin_ratio = np.count_nonzero(skin_mask) / float(roi.shape[0] * roi.shape[1])
         if skin_ratio > 0.05:
             hand_detected = True
 
@@ -210,31 +243,94 @@ def analyze_spatial_and_hand_context(frame_bgr: np.ndarray, bbox: tuple[int, int
     return is_held_in_center, center_score, hand_detected
 
 
+def draw_detections(frame_bgr: np.ndarray, detections: list[dict]) -> np.ndarray:
+    """
+    Dibuja rectangulos delimitadores y etiquetas sobre el frame BGR.
+    Soporta tanto OpenCV como fallback puro PIL sin requerir dependencias de sistema.
+    """
+    if not detections:
+        return frame_bgr
+
+    annotated = frame_bgr.copy()
+    for det in detections:
+        info = get_waste_info(det["clase"])
+        if info is None:
+            continue
+        color = info.get("color", (46, 204, 113))
+        x1, y1, x2, y2 = det["bbox"]
+
+        thick = 3 if det.get("is_held_in_center", False) else 2
+        clean_label = det["label"].encode("ascii", "ignore").decode("ascii") or det["clase"]
+        tag = " [En Mano]" if det.get("is_held_in_center", False) else ""
+        star = " *" if det.get("boost_applied", False) else ""
+        label_text = f"{clean_label} {det['confianza']:.0%}{tag}{star}"
+
+        if HAS_CV2 and cv2 is not None:
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thick)
+            (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+            top_y = max(y1, th + 10)
+            cv2.rectangle(annotated, (x1, top_y - th - 8), (x1 + tw + 8, top_y), color, -1)
+            cv2.putText(annotated, label_text, (x1 + 4, top_y - 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
+        else:
+            from PIL import Image as _PILImg, ImageDraw as _PILDraw
+            pil_temp = _PILImg.fromarray(annotated[:, :, ::-1])
+            draw = _PILDraw.Draw(pil_temp)
+            rgb_col = (color[2], color[1], color[0]) if len(color) == 3 else color
+            draw.rectangle([x1, y1, x2, y2], outline=rgb_col, width=thick)
+            lbl_w = len(label_text) * 8 + 8
+            draw.rectangle([x1, max(0, y1 - 18), x1 + lbl_w, y1], fill=rgb_col)
+            draw.text((x1 + 3, max(0, y1 - 16)), label_text, fill=(255, 255, 255))
+            annotated = np.array(pil_temp)[:, :, ::-1].copy()
+
+    return annotated
+
+
 def run_inference(
     model: YOLO,
     frame_bgr: np.ndarray,
-    conf_threshold: float = 0.20,
+    conf_threshold: float = 0.15,
     filter_people: bool = True,
     feedback_store: dict | None = None,
 ) -> tuple[np.ndarray, list[dict]]:
     """
-    Ejecuta deteccion YOLO con analisis espacial de objeto sostenido y auto-aprendizaje.
+    Ejecuta deteccion YOLO con soporte multi-objeto, analisis espacial y auto-aprendizaje.
     """
+    h_img, w_img = frame_bgr.shape[:2]
+    frame_area = w_img * h_img
+
     results = model(frame_bgr, conf=conf_threshold, verbose=False)[0]
-    detections = []
+    raw_detections = []
 
     for box in results.boxes:
         cls_id   = int(box.cls[0])
         cls_name = model.names[cls_id].lower()
         conf     = float(box.conf[0])
 
+        # Filtro de clases ignoradas
         if filter_people and cls_name in IGNORED_CLASSES:
             continue
+
+        # Evitar falsos positivos de pantalla completa / pared (solo si abarca literalmente todo el encuadre)
+        bbox = tuple(map(int, box.xyxy[0].tolist()))
+        x1, y1, x2, y2 = bbox
+        bw, bh = x2 - x1, y2 - y1
+        area_ratio = (bw * bh) / float(frame_area)
+
+        # Una caja grande (ej: encomienda o pizza) puede ocupar 50%, 60% o 75% del marco.
+        # Solo descartamos cuando la detección abarca de borde a borde toda la captura (>92% ancho Y alto o >88% área con baja confianza)
+        is_full_frame_bg = (bw > 0.92 * w_img and bh > 0.92 * h_img) or (area_ratio > 0.88 and conf < 0.40)
+        if is_full_frame_bg:
+            continue
+
+        # Filtro estricto para ruido de 'carton' en fondo
+        if cls_name in ("cardboard", "carton") and conf < 0.30:
+            continue
+
         info = get_waste_info(cls_name)
         if info is None:
             continue
 
-        bbox = tuple(map(int, box.xyxy[0].tolist()))
         is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
         effective_conf, boost_applied = calculate_boosted_confidence(
@@ -245,7 +341,7 @@ def run_inference(
             store=feedback_store
         )
 
-        detections.append({
+        raw_detections.append({
             "clase":             cls_name,
             "label":             info["label"],
             "emoji":             info.get("emoji", "📦"),
@@ -261,32 +357,30 @@ def run_inference(
             "bbox":              bbox,
         })
 
-    # Priorizar por confianza efectiva + score central
-    detections.sort(key=lambda d: d["confianza"] + (0.15 if d["is_held_in_center"] else 0.0), reverse=True)
+    # Non-Maximum Suppression (NMS) para eliminar solapamientos duplicados del mismo objeto
+    raw_detections.sort(key=lambda d: d["confianza"] + (0.15 if d["is_held_in_center"] else 0.0), reverse=True)
+    
+    def compute_iou(box1, box2):
+        bx1 = max(box1[0], box2[0])
+        by1 = max(box1[1], box2[1])
+        bx2 = min(box1[2], box2[2])
+        by2 = min(box1[3], box2[3])
+        inter_area = max(0, bx2 - bx1) * max(0, by2 - by1)
+        area1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
+        area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
+        denom = float(area1 + area2 - inter_area)
+        return (inter_area / denom) if denom > 0 else 0.0
 
-    # Anotar frame (usando etiquetas ASCII limpias para evitar los '?' de OpenCV Hershey)
-    annotated = frame_bgr.copy()
+    detections = []
+    for d in raw_detections:
+        overlap = False
+        for f in detections:
+            if compute_iou(d["bbox"], f["bbox"]) > 0.40:
+                overlap = True
+                break
+        if not overlap:
+            detections.append(d)
 
-    for det in detections:
-        info  = get_waste_info(det["clase"])
-        if info is None:
-            continue
-        color = info["color"]
-        x1, y1, x2, y2 = det["bbox"]
-
-        thick = 3 if det["is_held_in_center"] else 2
-        cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thick)
-
-        # Etiqueta limpia para OpenCV (sin emojis que rompen Hershey font)
-        clean_label = det["label"].encode("ascii", "ignore").decode("ascii") or det["clase"]
-        tag = " [En Mano]" if det["is_held_in_center"] else ""
-        star = " *" if det["boost_applied"] else ""
-        label_text = f"{clean_label} {det['confianza']:.0%}{tag}{star}"
-
-        (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
-        top_y = max(y1, th + 10)
-        cv2.rectangle(annotated, (x1, top_y - th - 8), (x1 + tw + 8, top_y), color, -1)
-        cv2.putText(annotated, label_text, (x1 + 4, top_y - 4),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
-
+    # Anotar frame dibujando cada uno de los objetos detectados (deteccion multiple)
+    annotated = draw_detections(frame_bgr, detections)
     return annotated, detections
