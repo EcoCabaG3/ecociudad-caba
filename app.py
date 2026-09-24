@@ -57,6 +57,9 @@ if "feedback_store" not in st.session_state:
 if "ultimo_residuo" not in st.session_state:
     st.session_state.ultimo_residuo = None
 
+if "camera_active" not in st.session_state:
+    st.session_state.camera_active = False
+
 fb_store = st.session_state.feedback_store
 total_feedbacks = get_total_corrections(fb_store)
 
@@ -185,6 +188,41 @@ html, body, [class*="css"], .stApp {
     color: var(--color-accent-dark) !important;
     font-weight: 700 !important;
     background-color: #FFFFFF !important;
+}
+
+/* ─── Tarjeta Standby del Visor ─── */
+.scanner-standby-card {
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+    border: 2px dashed #10B981;
+    border-radius: 16px;
+    padding: 2.2rem 1.2rem;
+    text-align: center;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.06);
+}
+.scanner-standby-icon {
+    width: 64px;
+    height: 64px;
+    background: #ECFDF5;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.9rem;
+    border: 1.5px solid #A7F3D0;
+}
+.scanner-standby-title {
+    margin: 0 0 0.35rem 0;
+    font-weight: 700;
+    color: #0F172A;
+    font-size: 1.2rem;
+}
+.scanner-standby-desc {
+    margin: 0 auto 1.4rem auto;
+    color: #64748B;
+    font-size: 0.86rem;
+    max-width: 360px;
+    line-height: 1.45;
 }
 
 /* ─── Marco Técnico del Visor de Cámara ─── */
@@ -521,78 +559,105 @@ with col_main:
     # TAB 1 — Cámara en Vivo
     # ═══════════════════════════════════════════════════════════════════════════
     with tab_live:
-        st.markdown("""
+        if not st.session_state.camera_active:
+            st.markdown("""
+<div class="scanner-standby-card">
+  <div class="scanner-standby-icon">
+    <span class="material-symbols-outlined" style="font-size: 34px; color: #059669;">photo_camera</span>
+  </div>
+  <h3 class="scanner-standby-title">Escáner de Residuos en Vivo</h3>
+  <p class="scanner-standby-desc">
+    Activá la cámara para clasificar botellas, cartón, pilas, vapers y otros materiales reciclables con IA en tiempo real.
+  </p>
+</div>
+""", unsafe_allow_html=True)
+
+            col_btn_l, col_btn_c, col_btn_r = st.columns([1, 2, 1])
+            with col_btn_c:
+                if st.button("🟢 Iniciar Escáner en Vivo", type="primary", use_container_width=True, key="btn_activate_camera"):
+                    st.session_state.camera_active = True
+                    st.rerun()
+
+            st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+            st.caption("💡 ¿Tu conexión o navegador restringe WebRTC? En la pestaña **'Subir Archivo / Foto'** podés capturar una foto instantánea con tu cámara sin streaming continuo.")
+
+        else:
+            st.markdown("""
 <div class="scanner-viewport-box">
   <div class="scanner-header-bar">
     <div class="scanner-status-indicator">
       <span class="live-dot-pulse"></span>
-      <span>VISOR IA ACTIVO</span>
+      <span>CÁMARA IA EN VIVO</span>
     </div>
     <div class="scanner-hint-text">
       <span class="material-symbols-outlined" style="font-size:16px; color:#10B981;">center_focus_strong</span>
-      Mostrá el residuo centrado · Detección en tiempo real
+      Centrá el residuo · Detección activa
     </div>
     <span style="font-size:0.72rem; color:#64748B; font-weight:600;">CABA · 30 FPS</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-        RTC_CONFIG = RTCConfiguration({"iceServers": [
-            {"urls": ["stun:stun.l.google.com:19302"]},
-        ]})
+            RTC_CONFIG = RTCConfiguration({"iceServers": [
+                {"urls": ["stun:stun.l.google.com:19302"]},
+            ]})
 
-        RTC_TRANSLATIONS = {
-            "start": "Iniciar Escaneo",
-            "stop": "Detener Escaneo",
-            "select_device": "Seleccionar Cámara",
-            "select_camera": "Cámara",
-            "device_ask_permission": "Permití el acceso a la cámara para escanear.",
-            "device_not_available": "No se detectó cámara disponible.",
-            "device_access_denied": "Acceso a la cámara denegado.",
-        }
+            RTC_TRANSLATIONS = {
+                "start": "Iniciar Escaneo",
+                "stop": "Pausar Cámara",
+                "select_device": "Seleccionar Cámara",
+                "select_camera": "Cámara",
+                "device_ask_permission": "Permití el acceso a la cámara para escanear.",
+                "device_not_available": "No se detectó cámara disponible.",
+                "device_access_denied": "Acceso a la cámara denegado.",
+            }
 
-        # Control de FPS para no saturar CPU ni memoria en Streamlit Cloud (1 vCPU, 1GB RAM)
-        # La inferencia YOLO se ejecuta como máximo cada ~350ms (~2.8 FPS de IA)
-        # mientras los cuadros intermedios reutilizan las etiquetas a 30 FPS fluidos.
-        throttle_state = {
-            "last_inference": 0.0,
-            "cached_detections": [],
-        }
+            # Control de FPS para no saturar CPU ni memoria en Streamlit Cloud (1 vCPU, 1GB RAM)
+            throttle_state = {
+                "last_inference": 0.0,
+                "cached_detections": [],
+            }
 
-        def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-            try:
-                img_bgr = frame.to_ndarray(format="bgr24")
-                now = time.time()
+            def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
+                try:
+                    img_bgr = frame.to_ndarray(format="bgr24")
+                    now = time.time()
 
-                if now - throttle_state["last_inference"] >= 0.35:
-                    throttle_state["last_inference"] = now
-                    _, detections = run_inference(
-                        model,
-                        img_bgr,
-                        conf_threshold=CONF_THRESH,
-                        filter_people=FILTER_PEOPLE,
-                        feedback_store=fb_store,
-                    )
-                    throttle_state["cached_detections"] = detections
+                    if now - throttle_state["last_inference"] >= 0.35:
+                        throttle_state["last_inference"] = now
+                        _, detections = run_inference(
+                            model,
+                            img_bgr,
+                            conf_threshold=CONF_THRESH,
+                            filter_people=FILTER_PEOPLE,
+                            feedback_store=fb_store,
+                        )
+                        throttle_state["cached_detections"] = detections
 
-                if throttle_state["cached_detections"]:
-                    annotated = draw_detections(img_bgr, throttle_state["cached_detections"])
-                    return av.VideoFrame.from_ndarray(annotated, format="bgr24")
-                return frame
-            except Exception:
-                return frame
+                    if throttle_state["cached_detections"]:
+                        annotated = draw_detections(img_bgr, throttle_state["cached_detections"])
+                        return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+                    return frame
+                except Exception:
+                    return frame
 
-        webrtc_streamer(
-            key=f"stream-{model_choice}",
-            mode=WebRtcMode.SENDRECV,
-            rtc_configuration=RTC_CONFIG,
-            video_frame_callback=video_frame_callback,
-            media_stream_constraints={"video": True, "audio": False},
-            desired_playing_state=None,
-            async_processing=True,
-            translations=RTC_TRANSLATIONS,
-        )
-        st.caption("💡 Si tu conexión o navegador restringe WebRTC, podés usar la pestaña 'Subir Archivo / Foto' para capturar una foto instantánea con tu cámara.")
+            webrtc_streamer(
+                key=f"stream-{model_choice}",
+                mode=WebRtcMode.SENDRECV,
+                rtc_configuration=RTC_CONFIG,
+                video_frame_callback=video_frame_callback,
+                media_stream_constraints={"video": True, "audio": False},
+                desired_playing_state=True,
+                async_processing=True,
+                translations=RTC_TRANSLATIONS,
+            )
+
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
+            col_s1, col_s2, col_s3 = st.columns([1, 2, 1])
+            with col_s2:
+                if st.button("⏹ Detener / Apagar Cámara", use_container_width=True, key="btn_stop_camera"):
+                    st.session_state.camera_active = False
+                    st.rerun()
 
 
     # ═══════════════════════════════════════════════════════════════════════════
