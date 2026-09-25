@@ -2,9 +2,42 @@
 app.py - EcoCiudad CABA - Scanner de Residuos con IA y Red de Puntos Verdes
 Tecnicatura en Ciencia de Datos e IA - IFTS N° 11
 """
+import os
 import time
 import base64
+import warnings
 from pathlib import Path
+
+# Configurar directorio de Ultralytics para evitar warning en entornos cloud de solo lectura
+os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/Ultralytics")
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+# ─── Patch de Resiliencia para aioice / WebRTC en Python 3.14 (Streamlit Cloud) ─
+# En Python 3.14, cuando una conexión WebRTC se cierra o falla el handshake STUN,
+# el socket se destruye y el temporizador interno de reintentos provoca un
+# AttributeError al llamar a call_exception_handler con _loop=None.
+try:
+    import aioice.stun
+    import aioice.ice
+
+    _orig_retry = aioice.stun.Transaction._Transaction__retry
+    def _safe_retry(self):
+        try:
+            _orig_retry(self)
+        except Exception:
+            pass
+    aioice.stun.Transaction._Transaction__retry = _safe_retry
+
+    _orig_send_stun = aioice.ice.StunProtocol.send_stun
+    def _safe_send_stun(self, message, addr):
+        try:
+            if getattr(self, "transport", None) is not None:
+                self.transport.sendto(bytes(message), addr)
+        except Exception:
+            pass
+    aioice.ice.StunProtocol.send_stun = _safe_send_stun
+except Exception:
+    pass
 
 import av
 import pandas as pd
@@ -674,7 +707,11 @@ with col_main:
 """, unsafe_allow_html=True)
 
             RTC_CONFIG = RTCConfiguration({"iceServers": [
-                {"urls": ["stun:stun.l.google.com:19302"]},
+                {"urls": [
+                    "stun:stun.l.google.com:19302",
+                    "stun:stun1.l.google.com:19302",
+                    "stun:stun2.l.google.com:19302",
+                ]},
             ]})
 
             RTC_TRANSLATIONS = {
