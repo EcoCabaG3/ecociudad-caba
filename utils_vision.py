@@ -73,6 +73,11 @@ WASTE_MAP = {
     "electronics":          {"label": "RAEE / Electronico",   "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo (hasta 10 aparatos por persona).", "es_especial": True},
     "circuit":              {"label": "RAEE / Electronico",   "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo (hasta 10 aparatos por persona).", "es_especial": True},
     "battery":              {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
+    "aa battery":           {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
+    "batteries":            {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
+    "alkaline battery":     {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
+    "small battery":        {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
+    "pila":                 {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
     "cell phone":           {"label": "Celular / RAEE",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Contiene metales pesados y componentes recuperables.", "es_especial": True},
     "laptop":               {"label": "Laptop / RAEE",        "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Tratamiento diferenciado de circuitos y bateria.", "es_especial": True},
     "mouse":                {"label": "Periferico / RAEE",    "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde junto a cables y teclados.", "es_especial": True},
@@ -81,6 +86,17 @@ WASTE_MAP = {
     "toner":                {"label": "Toner / Cartucho",     "emoji": "🖨️", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde (limpio, sin derrames, hasta 3 por persona).", "es_especial": True},
     "lamp":                 {"label": "Lampara / Tubo Fluo",  "emoji": "💡", "tipo": "Residuo Peligroso (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar en caja/envoltura (contiene mercurio). Hasta 5 por persona/dia.", "es_especial": True},
     "oil":                  {"label": "Aceite Usado (AVU)",   "emoji": "🍳", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Enfriar y envasar en botella plastica cerrada. 1L contamina 1000L de agua.", "es_especial": True},
+    "cooking oil":          {"label": "Aceite Usado (AVU)",   "emoji": "🍳", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Enfriar y envasar en botella plastica cerrada. 1L contamina 1000L de agua.", "es_especial": True},
+    "cooking oil bottle":   {"label": "Aceite Usado (AVU)",   "emoji": "🍳", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Enfriar y envasar en botella plastica cerrada. 1L contamina 1000L de agua.", "es_especial": True},
+    "oil bottle":           {"label": "Aceite Usado (AVU)",   "emoji": "🍳", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Enfriar y envasar en botella plastica cerrada. 1L contamina 1000L de agua.", "es_especial": True},
+    "used cooking oil":     {"label": "Aceite Usado (AVU)",   "emoji": "🍳", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Enfriar y envasar en botella plastica cerrada. 1L contamina 1000L de agua.", "es_especial": True},
+    "aceite":               {"label": "Aceite Usado (AVU)",   "emoji": "🍳", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Enfriar y envasar en botella plastica cerrada. 1L contamina 1000L de agua.", "es_especial": True},
+
+    # Envases cosmeticos / cremas / lociones
+    "lotion bottle":        {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
+    "cream bottle":         {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
+    "shampoo bottle":       {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
+    "cosmetic bottle":      {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
 
     # Organicos y Sanitario
     "organic":              {"label": "Residuo Organico",     "emoji": "🍂", "tipo": "Compost / Bolsa Negra",     "color": (139, 69, 19),   "accion": "Ideal para compostera domiciliaria o recepcion organica de Punto Verde.", "es_especial": False},
@@ -95,6 +111,9 @@ _KEYWORD_FALLBACK = [
     ("container",  "container"),
     ("cup",        "cup"),
     ("bottle",     "bottle"),
+    ("lotion",     "lotion bottle"),
+    ("cream",      "cream bottle"),
+    ("shampoo",    "shampoo bottle"),
     ("can",        "can"),
     ("tin",        "tin can"),
     ("steel",      "steel can"),
@@ -108,8 +127,11 @@ _KEYWORD_FALLBACK = [
     ("electronic", "electronic"),
     ("circuit",    "circuit"),
     ("battery",    "battery"),
+    ("batteries",  "battery"),
+    ("pila",       "battery"),
     ("organic",    "organic"),
     ("oil",        "oil"),
+    ("aceite",     "oil"),
 ]
 
 
@@ -146,11 +168,14 @@ def load_model(model_key: str = "yolov8s_world") -> YOLO:
     if "world" in str(path):
         model.set_classes([
             "plastic bottle", "glass bottle", "bottle",
+            "cooking oil bottle", "oil bottle", "cooking oil", "used cooking oil",
+            "lotion bottle", "cream bottle", "shampoo bottle", "cosmetic bottle",
             "cup", "plastic cup", "disposable cup",
             "aluminum can", "tin can", "can",
             "jar", "plastic jar", "pot", "plastic container",
             "vape", "vape pen", "electronic cigarette",
-            "cell phone", "battery",
+            "cell phone",
+            "aa battery", "battery", "batteries", "alkaline battery",
             "cardboard box", "cardboard", "paper",
             "compact disc", "cd", "tetra pak"
         ])
@@ -289,7 +314,7 @@ def draw_detections(frame_bgr: np.ndarray, detections: list[dict]) -> np.ndarray
 def run_inference(
     model: YOLO,
     frame_bgr: np.ndarray,
-    conf_threshold: float = 0.15,
+    conf_threshold: float = 0.28,
     filter_people: bool = True,
     feedback_store: dict | None = None,
 ) -> tuple[np.ndarray, list[dict]]:
@@ -306,6 +331,10 @@ def run_inference(
         cls_id   = int(box.cls[0])
         cls_name = model.names[cls_id].lower()
         conf     = float(box.conf[0])
+
+        # Filtro estricto para evitar falsas alarmas de celular en botellas/envases
+        if cls_name in ("cell phone", "smartphone") and conf < 0.38:
+            continue
 
         # Filtro de clases ignoradas
         if filter_people and cls_name in IGNORED_CLASSES:
