@@ -637,60 +637,30 @@ FILTER_PEOPLE = True
 # ─── Carga del Modelo ────────────────────────────────────────────────────────
 model = load_model(model_choice)
 
-# ─── Dashboard y Layout Principal en 2 Columnas (70% / 30%) ───────────────────
-daily_current = 124 + total_feedbacks
-daily_target = 200
-progress_pct = min(100, int((daily_current / daily_target) * 100))
-
-col_main, col_side = st.columns([2.3, 1], gap="large")
-
-with col_main:
-    # Encabezado directo y limpio sin tarjeta gigante envolvente
-    st.markdown("""
+# Encabezado directo y limpio sin tarjeta gigante envolvente
+st.markdown("""
 <div class="main-title-container">
   <div class="main-title-tag">
-    <span class="material-symbols-outlined" style="font-size:14px; color:#064E3B;">psychology</span>
-    Visión Computacional & Reciclaje
+<span class="material-symbols-outlined" style="font-size:14px; color:#064E3B;">psychology</span>
+Visión Computacional & Reciclaje
   </div>
   <h1 class="main-title-text">Identificador Inteligente de Residuos</h1>
   <p class="main-title-sub">Clasificación asistida por IA y geolocalización de Puntos Verdes oficiales de la Ciudad de Buenos Aires.</p>
 </div>
 """, unsafe_allow_html=True)
 
-    # Navegación unificada de pestañas
-    tab_live, tab_photo, tab_pv = st.tabs([
-        "📹 Escanear en Vivo",
-        "📁 Subir Archivo / Foto",
-        "📍 Red de Puntos Verdes"
-    ])
+# Navegación unificada de pestañas
+tab_live, tab_photo, tab_pv = st.tabs([
+    "📹 Escanear en Vivo",
+    "📁 Subir Archivo / Foto",
+    "📍 Red de Puntos Verdes"
+])
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # TAB 1 — Cámara en Vivo
-    # ═══════════════════════════════════════════════════════════════════════════
-    with tab_live:
-        if not st.session_state.camera_active:
-            st.markdown("""
-<div class="scanner-standby-card" style="text-align: center; padding: 2rem 1.5rem 1.5rem;">
-  <h3 class="scanner-standby-title" style="font-size: 1.3rem; margin-bottom: 0.4rem;">Escáner de Residuos en Vivo</h3>
-  <p class="scanner-standby-desc" style="max-width: 480px; margin: 0 auto 1.5rem; font-size: 0.92rem;">
-    Tocá el botón disparador para activar la cámara y clasificar botellas, cartón, pilas, vapers y otros materiales reciclables con IA en tiempo real.
-  </p>
-</div>
-""", unsafe_allow_html=True)
-
-            col_btn_l, col_btn_c, col_btn_r = st.columns([1, 1, 1])
-            with col_btn_c:
-                st.markdown('<div class="shutter-btn-box" style="display:flex; flex-direction:column; align-items:center;">', unsafe_allow_html=True)
-                if st.button("📷", key="btn_activate_camera", help="Iniciar cámara en vivo"):
-                    st.session_state.camera_active = True
-                    st.rerun()
-                st.markdown('<span class="shutter-btn-label">Iniciar Cámara</span></div>', unsafe_allow_html=True)
-
-            st.markdown("<div style='height: 14px;'></div>", unsafe_allow_html=True)
-            st.caption("💡 ¿Tu conexión o navegador restringe WebRTC? En la pestaña **'Subir Archivo / Foto'** podés capturar una foto instantánea con tu cámara sin streaming continuo.")
-
-        else:
-            st.markdown("""
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB 1 — Cámara en Vivo
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_live:
+    st.markdown("""
 <div class="scanner-viewport-box">
   <div class="scanner-header-bar">
     <div class="scanner-status-indicator">
@@ -706,151 +676,279 @@ with col_main:
 </div>
 """, unsafe_allow_html=True)
 
-            RTC_CONFIG = RTCConfiguration({"iceServers": [
-                {"urls": [
-                    "stun:stun.l.google.com:19302",
-                    "stun:stun1.l.google.com:19302",
-                    "stun:stun2.l.google.com:19302",
-                ]},
-            ]})
+    RTC_CONFIG = RTCConfiguration({"iceServers": [
+        {"urls": [
+            "stun:stun.l.google.com:19302",
+            "stun:stun1.l.google.com:19302",
+            "stun:stun2.l.google.com:19302",
+        ]},
+    ]})
 
-            RTC_TRANSLATIONS = {
-                "start": "Iniciar Escaneo",
-                "stop": "Pausar Cámara",
-                "select_device": "Seleccionar Cámara",
-                "select_camera": "Cámara",
-                "device_ask_permission": "Permití el acceso a la cámara para escanear.",
-                "device_not_available": "No se detectó cámara disponible.",
-                "device_access_denied": "Acceso a la cámara denegado.",
-            }
+    RTC_TRANSLATIONS = {
+        "start": "▶️ Iniciar Escáner",
+        "stop": "⏸️ Detener Escáner",
+        "select_device": "Seleccionar Cámara",
+        "select_camera": "Cámara",
+        "device_ask_permission": "Permití el acceso a la cámara para escanear.",
+        "device_not_available": "No se detectó cámara disponible.",
+        "device_access_denied": "Acceso a la cámara denegado.",
+    }
 
-            # Control de FPS para no saturar CPU ni memoria en Streamlit Cloud (1 vCPU, 1GB RAM)
-            throttle_state = {
-                "last_inference": 0.0,
-                "cached_detections": [],
-            }
+    throttle_state = {
+        "last_inference": 0.0,
+        "cached_detections": [],
+    }
 
-            def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-                try:
-                    img_bgr = frame.to_ndarray(format="bgr24")
-                    now = time.time()
+    def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
+        try:
+            img_bgr = frame.to_ndarray(format="bgr24")
+            now = time.time()
 
-                    if now - throttle_state["last_inference"] >= 0.35:
-                        throttle_state["last_inference"] = now
-                        _, detections = run_inference(
-                            model,
-                            img_bgr,
-                            conf_threshold=CONF_THRESH,
-                            filter_people=FILTER_PEOPLE,
-                            feedback_store=fb_store,
-                        )
-                        throttle_state["cached_detections"] = detections
-
-                    if throttle_state["cached_detections"]:
-                        annotated = draw_detections(img_bgr, throttle_state["cached_detections"])
-                        return av.VideoFrame.from_ndarray(annotated, format="bgr24")
-                    return frame
-                except Exception:
-                    return frame
-
-            webrtc_streamer(
-                key=f"stream-{model_choice}",
-                mode=WebRtcMode.SENDRECV,
-                rtc_configuration=RTC_CONFIG,
-                video_frame_callback=video_frame_callback,
-                media_stream_constraints={"video": True, "audio": False},
-                desired_playing_state=True,
-                async_processing=True,
-                translations=RTC_TRANSLATIONS,
-            )
-
-            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-            col_s1, col_s2, col_s3 = st.columns([1, 2, 1])
-            with col_s2:
-                if st.button("⏹ Detener / Apagar Cámara", width="stretch", key="btn_stop_camera"):
-                    st.session_state.camera_active = False
-                    st.rerun()
-
-
-    # ═══════════════════════════════════════════════════════════════════════════
-    # TAB 2 — Foto / Archivo (Carga de imágenes sin conflicto de cámara)
-    # ═══════════════════════════════════════════════════════════════════════════
-    with tab_photo:
-        col_in, col_out = st.columns([1, 1], gap="large")
-
-        with col_in:
-            st.subheader("📥 Carga de Archivo o Foto")
-            input_mode = st.radio(
-                "Elegí el método de captura:",
-                ["📁 Subir Archivo", "📸 Tomar Foto Instantánea"],
-                horizontal=True
-            )
-            img_pil = None
-            if input_mode == "📁 Subir Archivo":
-                uploaded = st.file_uploader(
-                    "Subir o arrastrar foto de tus residuos:",
-                    type=["jpg", "jpeg", "png", "webp", "bmp"],
-                    help="Soporta fotos con 1 o múltiples residuos simultáneos"
+            if now - throttle_state["last_inference"] >= 0.35:
+                throttle_state["last_inference"] = now
+                _, detections = run_inference(
+                    model,
+                    img_bgr,
+                    conf_threshold=CONF_THRESH,
+                    filter_people=FILTER_PEOPLE,
+                    feedback_store=fb_store,
                 )
-                if uploaded:
-                    img_pil = Image.open(uploaded).convert("RGB")
-            else:
-                cam_shot = st.camera_input("Sacá una foto clara de tus residuos:")
-                if cam_shot:
-                    img_pil = Image.open(cam_shot).convert("RGB")
+                throttle_state["cached_detections"] = detections
 
-        with col_out:
-            st.subheader("🔍 Diagnóstico Multi-Residuo")
+            if throttle_state["cached_detections"]:
+                annotated = draw_detections(img_bgr, throttle_state["cached_detections"])
+                return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+            return frame
+        except Exception:
+            return frame
 
-            if img_pil is None:
-                st.session_state.confirmed_override = None
-                st.markdown("""
+    webrtc_streamer(
+        key=f"stream-{model_choice}",
+        mode=WebRtcMode.SENDRECV,
+        rtc_configuration=RTC_CONFIG,
+        video_frame_callback=video_frame_callback,
+        media_stream_constraints={"video": True, "audio": False},
+        desired_playing_state=None,
+        async_processing=True,
+        translations=RTC_TRANSLATIONS,
+    )
+
+    st.caption("💡 ¿Tu dispositivo o red móvil restringe WebRTC? En la pestaña **'Subir Archivo / Foto'** podés usar la cámara instantánea sin streaming continuo.")
+
+with tab_photo:
+    col_in, col_out = st.columns([1, 1], gap="large")
+
+    with col_in:
+        st.subheader("📥 Carga de Archivo o Foto")
+        input_mode = st.radio(
+            "Elegí el método de captura:",
+            ["📁 Subir Archivo", "📸 Tomar Foto Instantánea"],
+            horizontal=True
+        )
+        img_pil = None
+        if input_mode == "📁 Subir Archivo":
+            uploaded = st.file_uploader(
+                "Subir o arrastrar foto de tus residuos:",
+                type=["jpg", "jpeg", "png", "webp", "bmp"],
+                help="Soporta fotos con 1 o múltiples residuos simultáneos"
+            )
+            if uploaded:
+                img_pil = Image.open(uploaded).convert("RGB")
+        else:
+            cam_shot = st.camera_input("Sacá una foto clara de tus residuos:")
+            if cam_shot:
+                img_pil = Image.open(cam_shot).convert("RGB")
+
+    with col_out:
+        st.subheader("🔍 Diagnóstico Multi-Residuo")
+
+        if img_pil is None:
+            st.session_state.confirmed_override = None
+            st.markdown("""
 <div style="background:#F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 12px; padding: 2.2rem 1.5rem; text-align: center;">
   <div style="width: 48px; height: 48px; background: #ECFDF5; color: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem;">
-    <span class="material-symbols-outlined" style="font-size: 24px;">upload_file</span>
+<span class="material-symbols-outlined" style="font-size: 24px;">upload_file</span>
   </div>
   <h4 style="margin: 0 0 0.3rem 0; font-weight: 700; color: #0F172A; font-size: 1.05rem;">Esperando imagen para diagnóstico</h4>
   <p style="margin: 0; color: #64748B; font-size: 0.84rem; line-height: 1.4;">Subí una foto a la izquierda con 1 o más materiales (potes, botellas, vapers, vasos, latas, etc.).</p>
 </div>
 """, unsafe_allow_html=True)
+        else:
+            import hashlib
+            img_bytes = img_pil.tobytes()
+            img_hash = hashlib.md5(img_bytes[:20000]).hexdigest()
+            if st.session_state.get("current_img_hash") != img_hash:
+                st.session_state.current_img_hash = img_hash
+                st.session_state.confirmed_override = None
+
+            frame_bgr = np.array(img_pil)[:, :, ::-1].copy()
+            annotated_bgr, detections = run_inference(
+                model,
+                frame_bgr,
+                conf_threshold=CONF_THRESH,
+                filter_people=FILTER_PEOPLE,
+                feedback_store=fb_store,
+            )
+            annotated_rgb = annotated_bgr[:, :, ::-1].copy()
+            st.image(annotated_rgb, width="stretch")
+
+            active_override = st.session_state.get("confirmed_override")
+            if active_override:
+                display_detections = [active_override]
             else:
-                import hashlib
-                img_bytes = img_pil.tobytes()
-                img_hash = hashlib.md5(img_bytes[:20000]).hexdigest()
-                if st.session_state.get("current_img_hash") != img_hash:
-                    st.session_state.current_img_hash = img_hash
-                    st.session_state.confirmed_override = None
+                display_detections = detections
 
-                frame_bgr = np.array(img_pil)[:, :, ::-1].copy()
-                annotated_bgr, detections = run_inference(
-                    model,
-                    frame_bgr,
-                    conf_threshold=CONF_THRESH,
-                    filter_people=FILTER_PEOPLE,
-                    feedback_store=fb_store,
-                )
-                annotated_rgb = annotated_bgr[:, :, ::-1].copy()
-                st.image(annotated_rgb, width="stretch")
-
-                active_override = st.session_state.get("confirmed_override")
-                if active_override:
-                    display_detections = [active_override]
-                else:
-                    display_detections = detections
-
-                if not display_detections:
-                    st.warning("No se detectó ningún residuo claro con el umbral actual. Probá con una toma más cercana o mejor iluminación.")
-                    st.markdown("""
+            if not display_detections:
+                st.warning("No se detectó ningún residuo claro con el umbral actual. Probá con una toma más cercana o mejor iluminación.")
+                st.markdown("""
 <div class="fb-container-stitch">
   <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-    <span class="material-symbols-outlined" style="color:#059669; font-size:20px;">psychology</span>
-    <b style="color:#0F172A; font-size:0.95rem;">¿Qué material tenés? Seleccionalo para clasificarlo:</b>
+<span class="material-symbols-outlined" style="color:#059669; font-size:20px;">psychology</span>
+<b style="color:#0F172A; font-size:0.95rem;">¿Qué material tenés? Seleccionalo para clasificarlo:</b>
   </div>
   <span style="font-size:0.86rem; color:#64748B;">
-    Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el servidor.
+Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el servidor.
   </span>
 </div>
 """, unsafe_allow_html=True)
+                quick_materials = [
+                    ("plastic",   "🧴 Plástico / Pote"),
+                    ("oil",       "🍳 Aceite AVU"),
+                    ("battery",   "🔋 Pila / Batería"),
+                    ("vape",      "⚡ Vaper / RAEE"),
+                    ("cardboard", "📦 Cartón"),
+                    ("metal",     "🥫 Metal / Lata"),
+                    ("glass",     "🍾 Vidrio"),
+                    ("paper",     "📄 Papel"),
+                ]
+                cols_btn = st.columns(4)
+                for idx, (mat_key, mat_label) in enumerate(quick_materials):
+                    col_target = cols_btn[idx % 4]
+                    if col_target.button(mat_label, key=f"btn_fb_empty_{mat_key}", width="stretch"):
+                        info = get_waste_info(mat_key)
+                        new_store = add_correction(
+                            predicted_cls="unknown",
+                            correct_cls=mat_key,
+                            is_held_in_center=False,
+                            store=st.session_state.feedback_store
+                        )
+                        st.session_state.feedback_store = new_store
+                        st.session_state.confirmed_override = {
+                            "clase": mat_key,
+                            "label": info["label"],
+                            "emoji": info["emoji"],
+                            "tipo": info["tipo"],
+                            "accion": info["accion"],
+                            "es_especial": info.get("es_especial", False),
+                            "confianza": 1.0,
+                            "is_held_in_center": False,
+                            "user_confirmed": True,
+                        }
+                        st.rerun()
+            else:
+                st.session_state.ultimo_residuo = display_detections[0]
+                has_special = any(d.get("es_especial", False) for d in display_detections)
+                is_held = display_detections[0].get("is_held_in_center", False)
+
+                m1, m2 = st.columns(2)
+                m1.metric("Residuos detectados", len(display_detections))
+                if active_override:
+                    m2.metric("Estado de análisis", "Confirmado por Usuario")
+                else:
+                    m2.metric("Estado de análisis", "Verificado por IA")
+
+                if active_override:
+                    st.markdown("""
+<div style="background:#ECFDF5; border: 1.5px solid #10B981; border-radius: 12px; padding: 12px 16px; margin: 10px 0 14px; display: flex; align-items: center; justify-content: space-between;">
+  <div style="display:flex; align-items:center; gap:10px;">
+<span class="material-symbols-outlined" style="color:#059669; font-size:24px;">check_circle</span>
+<div>
+  <b style="color:#064E3B; font-size:0.95rem;">Clasificación confirmada y guardada</b>
+  <div style="color:#047857; font-size:0.80rem;">El aprendizaje fue registrado permanentemente en el servidor para el modelo.</div>
+</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+                    if st.button("↺ Cambiar o corregir de nuevo", key="btn_reset_override"):
+                        st.session_state.confirmed_override = None
+                        st.rerun()
+
+                st.markdown(f"### 📋 {len(display_detections)} Residuo{'s' if len(display_detections) > 1 else ''} Identificado{'s' if len(display_detections) > 1 else ''}")
+
+                for idx, det in enumerate(display_detections):
+                    tipo = det["tipo"]
+                    label = det["label"]
+                    es_esp = det.get("es_especial", False)
+                    card_cls = "det-card special" if es_esp else "det-card"
+                    if not es_esp:
+                        if "Vidrio" in label:
+                            card_cls += " glass"
+                        elif "Carton" in label or "Papel" in label:
+                            card_cls += " paper"
+                        elif "Metal" in label or "Lata" in label:
+                            card_cls += " metal"
+                        elif "CD" in label or "Disco" in label:
+                            card_cls += " glass"
+
+                    held_tag = " · 🖐️ En mano" if det.get("is_held_in_center") else ""
+                    boost_tag = " ✦ Auto-aprendido" if det.get("boost_applied") else ""
+
+                    if det.get("user_confirmed"):
+                        badge_text = "● Confirmado"
+                        badge_class = "ecoscan-badge"
+                    elif es_esp:
+                        badge_text = "● Residuo Especial"
+                        badge_class = "ecoscan-badge ecoscan-badge-special"
+                    else:
+                        badge_text = "● Reciclable Seco"
+                        badge_class = "ecoscan-badge"
+
+                    prefix = f"#{idx+1} " if len(display_detections) > 1 else ""
+
+                    st.markdown(f"""
+<div class="{card_cls}">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+<span style="font-size:1.1rem; font-weight:700; color:#0F172A;">{prefix}{det['emoji']} {det['label']}</span>
+<div>
+  <span class="{badge_class}">{badge_text}{boost_tag}</span>
+</div>
+  </div>
+  <div style="margin-top:0.5rem; font-size:0.9rem; line-height:1.5;">
+<b>Destino:</b> {det['tipo']}{held_tag}<br>
+<b>¿Qué hacer?:</b> {det['accion']}
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+                # ── Opcionalidad de Puntos Verdes según el tipo de residuo ──
+                st.divider()
+                if has_special:
+                    st.error("🔴 **RESIDUO ESPECIAL DETECTADO:** Al menos uno de los materiales **NO debe tirarse en el contenedor verde ni negro**. Requiere Punto Verde o Punto Verde Móvil.")
+                    st.info("👉 Consultá la pestaña **'📍 Red de Puntos Verdes'** para ver el mapa y horarios del punto más cercano a tu Comuna.")
+                else:
+                    st.success("🟢 **Disposición en Origen:** Podés depositar estos materiales directamente en el **Contenedor Verde** de tu cuadra (limpios y secos).")
+                    with st.expander("📍 ¿Querés llevarlos a un Punto Verde o Centro de Cooperativa? (Opcional)"):
+                        st.markdown("""
+Si no tenés contenedor verde cerca o preferís entregarlos en mano:
+- **Puntos Verdes:** Miércoles a Domingos de 11 a 14:30 h y de 15 a 19 h.
+- **Centros Verdes:** Plantas de cooperativas de recuperadores urbanos.
+- Consulta el mapa completo en la pestaña **'📍 Red de Puntos Verdes'**.
+""")
+
+                # ── Auto-entrenamiento / Corrección ──
+                if not active_override:
+                    st.markdown("""
+<div class="fb-container-stitch">
+  <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+<span class="material-symbols-outlined" style="color:#059669; font-size:20px;">psychology</span>
+<b style="color:#0F172A; font-size:0.95rem;">¿Dudó el sistema? Confirmá el material correcto:</b>
+  </div>
+  <span style="font-size:0.86rem; color:#64748B;">
+Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda el aprendizaje en el servidor.
+  </span>
+</div>
+""", unsafe_allow_html=True)
+
                     quick_materials = [
                         ("plastic",   "🧴 Plástico / Pote"),
                         ("oil",       "🍳 Aceite AVU"),
@@ -861,15 +959,19 @@ with col_main:
                         ("glass",     "🍾 Vidrio"),
                         ("paper",     "📄 Papel"),
                     ]
+
+                    st.write("")
                     cols_btn = st.columns(4)
                     for idx, (mat_key, mat_label) in enumerate(quick_materials):
                         col_target = cols_btn[idx % 4]
-                        if col_target.button(mat_label, key=f"btn_fb_empty_{mat_key}", width="stretch"):
+                        if col_target.button(mat_label, key=f"btn_fb_{mat_key}", width="stretch"):
                             info = get_waste_info(mat_key)
+                            pred_cls = detections[0]["clase"] if detections else "unknown"
+                            is_held_val = detections[0]["is_held_in_center"] if detections else False
                             new_store = add_correction(
-                                predicted_cls="unknown",
+                                predicted_cls=pred_cls,
                                 correct_cls=mat_key,
-                                is_held_in_center=False,
+                                is_held_in_center=is_held_val,
                                 store=st.session_state.feedback_store
                             )
                             st.session_state.feedback_store = new_store
@@ -881,376 +983,234 @@ with col_main:
                                 "accion": info["accion"],
                                 "es_especial": info.get("es_especial", False),
                                 "confianza": 1.0,
-                                "is_held_in_center": False,
+                                "is_held_in_center": is_held_val,
                                 "user_confirmed": True,
                             }
                             st.rerun()
-                else:
-                    st.session_state.ultimo_residuo = display_detections[0]
-                    has_special = any(d.get("es_especial", False) for d in display_detections)
-                    is_held = display_detections[0].get("is_held_in_center", False)
-
-                    m1, m2 = st.columns(2)
-                    m1.metric("Residuos detectados", len(display_detections))
-                    if active_override:
-                        m2.metric("Estado de análisis", "Confirmado por Usuario")
-                    else:
-                        m2.metric("Estado de análisis", "Verificado por IA")
-
-                    if active_override:
-                        st.markdown("""
-<div style="background:#ECFDF5; border: 1.5px solid #10B981; border-radius: 12px; padding: 12px 16px; margin: 10px 0 14px; display: flex; align-items: center; justify-content: space-between;">
-  <div style="display:flex; align-items:center; gap:10px;">
-    <span class="material-symbols-outlined" style="color:#059669; font-size:24px;">check_circle</span>
-    <div>
-      <b style="color:#064E3B; font-size:0.95rem;">Clasificación confirmada y guardada</b>
-      <div style="color:#047857; font-size:0.80rem;">El aprendizaje fue registrado permanentemente en el servidor para el modelo.</div>
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-                        if st.button("↺ Cambiar o corregir de nuevo", key="btn_reset_override"):
-                            st.session_state.confirmed_override = None
-                            st.rerun()
-
-                    st.markdown(f"### 📋 {len(display_detections)} Residuo{'s' if len(display_detections) > 1 else ''} Identificado{'s' if len(display_detections) > 1 else ''}")
-
-                    for idx, det in enumerate(display_detections):
-                        tipo = det["tipo"]
-                        label = det["label"]
-                        es_esp = det.get("es_especial", False)
-                        card_cls = "det-card special" if es_esp else "det-card"
-                        if not es_esp:
-                            if "Vidrio" in label:
-                                card_cls += " glass"
-                            elif "Carton" in label or "Papel" in label:
-                                card_cls += " paper"
-                            elif "Metal" in label or "Lata" in label:
-                                card_cls += " metal"
-                            elif "CD" in label or "Disco" in label:
-                                card_cls += " glass"
-
-                        held_tag = " · 🖐️ En mano" if det.get("is_held_in_center") else ""
-                        boost_tag = " ✦ Auto-aprendido" if det.get("boost_applied") else ""
-
-                        if det.get("user_confirmed"):
-                            badge_text = "● Confirmado"
-                            badge_class = "ecoscan-badge"
-                        elif es_esp:
-                            badge_text = "● Residuo Especial"
-                            badge_class = "ecoscan-badge ecoscan-badge-special"
-                        else:
-                            badge_text = "● Reciclable Seco"
-                            badge_class = "ecoscan-badge"
-
-                        prefix = f"#{idx+1} " if len(display_detections) > 1 else ""
-
-                        st.markdown(f"""
-<div class="{card_cls}">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <span style="font-size:1.1rem; font-weight:700; color:#0F172A;">{prefix}{det['emoji']} {det['label']}</span>
-    <div>
-      <span class="{badge_class}">{badge_text}{boost_tag}</span>
-    </div>
-  </div>
-  <div style="margin-top:0.5rem; font-size:0.9rem; line-height:1.5;">
-    <b>Destino:</b> {det['tipo']}{held_tag}<br>
-    <b>¿Qué hacer?:</b> {det['accion']}
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-                    # ── Opcionalidad de Puntos Verdes según el tipo de residuo ──
-                    st.divider()
-                    if has_special:
-                        st.error("🔴 **RESIDUO ESPECIAL DETECTADO:** Al menos uno de los materiales **NO debe tirarse en el contenedor verde ni negro**. Requiere Punto Verde o Punto Verde Móvil.")
-                        st.info("👉 Consultá la pestaña **'📍 Red de Puntos Verdes'** para ver el mapa y horarios del punto más cercano a tu Comuna.")
-                    else:
-                        st.success("🟢 **Disposición en Origen:** Podés depositar estos materiales directamente en el **Contenedor Verde** de tu cuadra (limpios y secos).")
-                        with st.expander("📍 ¿Querés llevarlos a un Punto Verde o Centro de Cooperativa? (Opcional)"):
-                            st.markdown("""
-Si no tenés contenedor verde cerca o preferís entregarlos en mano:
-- **Puntos Verdes:** Miércoles a Domingos de 11 a 14:30 h y de 15 a 19 h.
-- **Centros Verdes:** Plantas de cooperativas de recuperadores urbanos.
-- Consulta el mapa completo en la pestaña **'📍 Red de Puntos Verdes'**.
-""")
-
-                    # ── Auto-entrenamiento / Corrección ──
-                    if not active_override:
-                        st.markdown("""
-<div class="fb-container-stitch">
-  <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-    <span class="material-symbols-outlined" style="color:#059669; font-size:20px;">psychology</span>
-    <b style="color:#0F172A; font-size:0.95rem;">¿Dudó el sistema? Confirmá el material correcto:</b>
-  </div>
-  <span style="font-size:0.86rem; color:#64748B;">
-    Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda el aprendizaje en el servidor.
-  </span>
-</div>
-""", unsafe_allow_html=True)
-
-                        quick_materials = [
-                            ("plastic",   "🧴 Plástico / Pote"),
-                            ("oil",       "🍳 Aceite AVU"),
-                            ("battery",   "🔋 Pila / Batería"),
-                            ("vape",      "⚡ Vaper / RAEE"),
-                            ("cardboard", "📦 Cartón"),
-                            ("metal",     "🥫 Metal / Lata"),
-                            ("glass",     "🍾 Vidrio"),
-                            ("paper",     "📄 Papel"),
-                        ]
-
-                        st.write("")
-                        cols_btn = st.columns(4)
-                        for idx, (mat_key, mat_label) in enumerate(quick_materials):
-                            col_target = cols_btn[idx % 4]
-                            if col_target.button(mat_label, key=f"btn_fb_{mat_key}", width="stretch"):
-                                info = get_waste_info(mat_key)
-                                pred_cls = detections[0]["clase"] if detections else "unknown"
-                                is_held_val = detections[0]["is_held_in_center"] if detections else False
-                                new_store = add_correction(
-                                    predicted_cls=pred_cls,
-                                    correct_cls=mat_key,
-                                    is_held_in_center=is_held_val,
-                                    store=st.session_state.feedback_store
-                                )
-                                st.session_state.feedback_store = new_store
-                                st.session_state.confirmed_override = {
-                                    "clase": mat_key,
-                                    "label": info["label"],
-                                    "emoji": info["emoji"],
-                                    "tipo": info["tipo"],
-                                    "accion": info["accion"],
-                                    "es_especial": info.get("es_especial", False),
-                                    "confianza": 1.0,
-                                    "is_held_in_center": is_held_val,
-                                    "user_confirmed": True,
-                                }
-                                st.rerun()
 
 
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # TAB 3 — Puntos y Centros Verdes
-    # ═══════════════════════════════════════════════════════════════════════════
-    with tab_pv:
-        st.subheader("📍 Red de Puntos Verdes y Centros Verdes de CABA")
-        st.markdown("""
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB 3 — Puntos y Centros Verdes
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_pv:
+    st.subheader("📍 Red de Puntos Verdes y Centros Verdes de CABA")
+    st.markdown("""
 Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Verdes** gestionadas por Cooperativas de Recuperadores Urbanos en la Ciudad de Buenos Aires.
 """)
 
-        if user_geo_component is not None:
-            geo_data = user_geo_component(key="user_geo_locator")
-            if geo_data and isinstance(geo_data, dict) and geo_data.get("success"):
-                g_lat = float(geo_data.get("lat", 0.0))
-                g_lon = float(geo_data.get("lon", 0.0))
-                if g_lat != 0.0 and g_lon != 0.0:
-                    st.session_state.user_lat = g_lat
-                    st.session_state.user_lon = g_lon
+    if user_geo_component is not None:
+        geo_data = user_geo_component(key="user_geo_locator")
+        if geo_data and isinstance(geo_data, dict) and geo_data.get("success"):
+            g_lat = float(geo_data.get("lat", 0.0))
+            g_lon = float(geo_data.get("lon", 0.0))
+            if g_lat != 0.0 and g_lon != 0.0:
+                st.session_state.user_lat = g_lat
+                st.session_state.user_lon = g_lon
 
-        COMUNAS_BARRIOS = {
-            1: "1 (Constitución, Montserrat, Puerto Madero, Retiro, San Nicolás, San Telmo)",
-            2: "2 (Recoleta)",
-            3: "3 (Balvanera, San Cristóbal)",
-            4: "4 (Barracas, La Boca, Nueva Pompeya, Parque Patricios)",
-            5: "5 (Almagro, Boedo)",
-            6: "6 (Caballito)",
-            7: "7 (Flores, Parque Chacabuco)",
-            8: "8 (Villa Lugano, Villa Riachuelo, Villa Soldati)",
-            9: "9 (Liniers, Mataderos, Parque Avellaneda)",
-            10: "10 (Floresta, Monte Castro, Vélez Sarsfield, Versalles, Villa Luro, Villa Real)",
-            11: "11 (Villa del Parque, Villa Devoto, Villa General Mitre, Villa Santa Rita)",
-            12: "12 (Coghlan, Saavedra, Villa Pueyrredón, Villa Urquiza)",
-            13: "13 (Belgrano, Colegiales, Núñez)",
-            14: "14 (Palermo)",
-            15: "15 (Agronomía, Chacarita, La Paternal, Parque Chas, Villa Crespo, Villa Ortúzar)",
-        }
+    COMUNAS_BARRIOS = {
+        1: "1 (Constitución, Montserrat, Puerto Madero, Retiro, San Nicolás, San Telmo)",
+        2: "2 (Recoleta)",
+        3: "3 (Balvanera, San Cristóbal)",
+        4: "4 (Barracas, La Boca, Nueva Pompeya, Parque Patricios)",
+        5: "5 (Almagro, Boedo)",
+        6: "6 (Caballito)",
+        7: "7 (Flores, Parque Chacabuco)",
+        8: "8 (Villa Lugano, Villa Riachuelo, Villa Soldati)",
+        9: "9 (Liniers, Mataderos, Parque Avellaneda)",
+        10: "10 (Floresta, Monte Castro, Vélez Sarsfield, Versalles, Villa Luro, Villa Real)",
+        11: "11 (Villa del Parque, Villa Devoto, Villa General Mitre, Villa Santa Rita)",
+        12: "12 (Coghlan, Saavedra, Villa Pueyrredón, Villa Urquiza)",
+        13: "13 (Belgrano, Colegiales, Núñez)",
+        14: "14 (Palermo)",
+        15: "15 (Agronomía, Chacarita, La Paternal, Parque Chas, Villa Crespo, Villa Ortúzar)",
+    }
 
-        # Coordenadas aproximadas de centroide por comuna
-        COMUNA_CENTROIDES = {
-            1: (-34.6037, -58.3750), 2: (-34.5910, -58.3980), 3: (-34.6150, -58.4030),
-            4: (-34.6430, -58.3950), 5: (-34.6140, -58.4180), 6: (-34.6178, -58.4345),
-            7: (-34.6310, -58.4520), 8: (-34.6680, -58.4580), 9: (-34.6530, -58.4950),
-            10: (-34.6260, -58.5000), 11: (-34.6020, -58.5030), 12: (-34.5610, -58.4940),
-            13: (-34.5530, -58.4620), 14: (-34.5820, -58.4240), 15: (-34.5840, -58.4580),
-        }
+    # Coordenadas aproximadas de centroide por comuna
+    COMUNA_CENTROIDES = {
+        1: (-34.6037, -58.3750), 2: (-34.5910, -58.3980), 3: (-34.6150, -58.4030),
+        4: (-34.6430, -58.3950), 5: (-34.6140, -58.4180), 6: (-34.6178, -58.4345),
+        7: (-34.6310, -58.4520), 8: (-34.6680, -58.4580), 9: (-34.6530, -58.4950),
+        10: (-34.6260, -58.5000), 11: (-34.6020, -58.5030), 12: (-34.5610, -58.4940),
+        13: (-34.5530, -58.4620), 14: (-34.5820, -58.4240), 15: (-34.5840, -58.4580),
+    }
 
-        col_f1, col_f2 = st.columns([1.2, 1])
-        with col_f1:
-            comunas_disponibles = ["Todas"] + list(range(1, 16))
-            filtro_comuna = st.selectbox(
-                "Tu Comuna / Barrio de referencia:",
-                comunas_disponibles,
-                format_func=lambda c: "CABA (Todas las Comunas)" if c == "Todas" else COMUNAS_BARRIOS.get(c, str(c)),
-                key="filtro_comuna_pv"
-            )
-        with col_f2:
-            tipo_capa = st.radio(
-                "Capa en mapa:",
-                ["📍 Puntos Verdes (32)", "🏭 Centros Verdes (14)", "🌐 Todos (46)"],
-                horizontal=True
-            )
+    col_f1, col_f2 = st.columns([1.2, 1])
+    with col_f1:
+        comunas_disponibles = ["Todas"] + list(range(1, 16))
+        filtro_comuna = st.selectbox(
+            "Tu Comuna / Barrio de referencia:",
+            comunas_disponibles,
+            format_func=lambda c: "CABA (Todas las Comunas)" if c == "Todas" else COMUNAS_BARRIOS.get(c, str(c)),
+            key="filtro_comuna_pv"
+        )
+    with col_f2:
+        tipo_capa = st.radio(
+            "Capa en mapa:",
+            ["📍 Puntos Verdes (32)", "🏭 Centros Verdes (14)", "🌐 Todos (46)"],
+            horizontal=True
+        )
 
-        df_pv = pd.DataFrame(PUNTOS_VERDES_LIST)
-        df_cv = pd.DataFrame(CENTROS_VERDES_LIST)
+    df_pv = pd.DataFrame(PUNTOS_VERDES_LIST)
+    df_cv = pd.DataFrame(CENTROS_VERDES_LIST)
 
-        if "Puntos Verdes" in tipo_capa:
-            df_display = df_pv.copy()
-        elif "Centros Verdes" in tipo_capa:
-            df_display = df_cv.copy()
-        else:
-            df_display = pd.concat([df_pv, df_cv], ignore_index=True)
+    if "Puntos Verdes" in tipo_capa:
+        df_display = df_pv.copy()
+    elif "Centros Verdes" in tipo_capa:
+        df_display = df_cv.copy()
+    else:
+        df_display = pd.concat([df_pv, df_cv], ignore_index=True)
 
-        has_user_gps = (st.session_state.get("user_lat") is not None and st.session_state.get("user_lon") is not None)
+    has_user_gps = (st.session_state.get("user_lat") is not None and st.session_state.get("user_lon") is not None)
 
-        # Coordenada de referencia para cálculo según Comuna o GPS
-        if has_user_gps and filtro_comuna == "Todas":
-            ref_lat = st.session_state.user_lat
-            ref_lon = st.session_state.user_lon
-            st.success(f"📍 **Ubicación GPS activa:** Coordenadas ({ref_lat:.4f}, {ref_lon:.4f}). Los puntos verdes se calculan desde tu posición real.")
+    # Coordenada de referencia para cálculo según Comuna o GPS
+    if has_user_gps and filtro_comuna == "Todas":
+        ref_lat = st.session_state.user_lat
+        ref_lon = st.session_state.user_lon
+        st.success(f"📍 **Ubicación GPS activa:** Coordenadas ({ref_lat:.4f}, {ref_lon:.4f}). Los puntos verdes se calculan desde tu posición real.")
+        df_filtrado_mapa = df_display.copy()
+    elif filtro_comuna != "Todas" and int(filtro_comuna) in COMUNA_CENTROIDES:
+        ref_lat, ref_lon = COMUNA_CENTROIDES[int(filtro_comuna)]
+        df_filtrado_mapa = df_display[df_display["comuna"] == int(filtro_comuna)]
+        if df_filtrado_mapa.empty:
             df_filtrado_mapa = df_display.copy()
-        elif filtro_comuna != "Todas" and int(filtro_comuna) in COMUNA_CENTROIDES:
-            ref_lat, ref_lon = COMUNA_CENTROIDES[int(filtro_comuna)]
-            df_filtrado_mapa = df_display[df_display["comuna"] == int(filtro_comuna)]
-            if df_filtrado_mapa.empty:
-                df_filtrado_mapa = df_display.copy()
+    else:
+        ref_lat, ref_lon = -34.6037, -58.3816
+        df_filtrado_mapa = df_display.copy()
+
+    # ── Sección Puntos Verdes Cercanos (Dinámica con datos reales CABA) ──
+    st.markdown("### 📍 Puntos Verdes más cercanos a tu ubicación")
+
+    todos_puntos = PUNTOS_VERDES_LIST + CENTROS_VERDES_LIST
+
+    def calc_dist(pt):
+        dlat = np.radians(pt["lat"] - ref_lat)
+        dlon = np.radians(pt["lon"] - ref_lon)
+        a = np.sin(dlat / 2)**2 + np.cos(np.radians(ref_lat)) * np.cos(np.radians(pt["lat"])) * np.sin(dlon / 2)**2
+        return 6371.0 * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+    puntos_con_dist = []
+    for p in todos_puntos:
+        p_copy = dict(p)
+        p_copy["dist_km"] = calc_dist(p)
+        puntos_con_dist.append(p_copy)
+
+    puntos_con_dist.sort(key=lambda x: x["dist_km"])
+    top3_cercanos = puntos_con_dist[:3]
+
+    cards_html = ""
+    for p in top3_cercanos:
+        is_cv = "Centro Verde" in p.get("tipo", "")
+        is_esp = "Especial" in p.get("tipo", "")
+
+        if is_cv:
+            icon_name = "factory"
+            tag_color = "#19273A"
+        elif is_esp:
+            icon_name = "battery_charging_full"
+            tag_color = "#EF4444"
         else:
-            ref_lat, ref_lon = -34.6037, -58.3816
-            df_filtrado_mapa = df_display.copy()
+            icon_name = "recycling"
+            tag_color = "#059669"
 
-        # ── Sección Puntos Verdes Cercanos (Dinámica con datos reales CABA) ──
-        st.markdown("### 📍 Puntos Verdes más cercanos a tu ubicación")
+        if has_user_gps:
+            maps_url = f"https://www.google.com/maps/dir/?api=1&origin={ref_lat},{ref_lon}&destination={p['lat']},{p['lon']}"
+        else:
+            maps_url = f"https://www.google.com/maps/dir/?api=1&destination={p['lat']},{p['lon']}"
 
-        todos_puntos = PUNTOS_VERDES_LIST + CENTROS_VERDES_LIST
+        cards_html += f"""<div class="nearby-center-item" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;"><div class="nearby-item-left"><div class="nearby-item-icon" style="color: {tag_color};"><span class="material-symbols-outlined">{icon_name}</span></div><div><div class="nearby-item-name">{p['nombre']}</div><div class="nearby-item-meta">{p.get('tipo', 'Punto Verde')} • {p.get('direccion', '')} • Comuna {p['comuna']} • <b>{p['dist_km']:.1f} km</b></div></div></div><div style="text-align:right;"><a href="{maps_url}" target="_blank" class="maps-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">directions</span> Cómo llegar en Google Maps</a></div></div>"""
 
-        def calc_dist(pt):
-            dlat = np.radians(pt["lat"] - ref_lat)
-            dlon = np.radians(pt["lon"] - ref_lon)
-            a = np.sin(dlat / 2)**2 + np.cos(np.radians(ref_lat)) * np.cos(np.radians(pt["lat"])) * np.sin(dlon / 2)**2
-            return 6371.0 * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    st.markdown(f'<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 1.25rem;">{cards_html}</div>', unsafe_allow_html=True)
 
-        puntos_con_dist = []
-        for p in todos_puntos:
-            p_copy = dict(p)
-            p_copy["dist_km"] = calc_dist(p)
-            puntos_con_dist.append(p_copy)
+    st.markdown("#### 🗺️ Ubicaciones Geolocalizadas (Pasá el cursor o tocá un punto)")
 
-        puntos_con_dist.sort(key=lambda x: x["dist_km"])
-        top3_cercanos = puntos_con_dist[:3]
+    # Colores pydeck: Verde para Punto Verde, Rojo para Especial, Azul para Centro Verde
+    def get_color_pdk(row):
+        t = str(row.get("tipo", ""))
+        if "Especial" in t:
+            return [239, 68, 68, 220]
+        elif "Centro Verde" in t:
+            return [15, 23, 42, 220]
+        else:
+            return [16, 185, 129, 220]
 
-        cards_html = ""
-        for p in top3_cercanos:
-            is_cv = "Centro Verde" in p.get("tipo", "")
-            is_esp = "Especial" in p.get("tipo", "")
+    df_map_render = df_filtrado_mapa.copy()
+    df_map_render["color"] = df_map_render.apply(get_color_pdk, axis=1)
 
-            if is_cv:
-                icon_name = "factory"
-                tag_color = "#19273A"
-            elif is_esp:
-                icon_name = "battery_charging_full"
-                tag_color = "#EF4444"
-            else:
-                icon_name = "recycling"
-                tag_color = "#059669"
+    layer_points = pdk.Layer(
+        "ScatterplotLayer",
+        data=df_map_render,
+        get_position=["lon", "lat"],
+        get_color="color",
+        get_radius=220,
+        pickable=True,
+        auto_highlight=True,
+    )
 
-            if has_user_gps:
-                maps_url = f"https://www.google.com/maps/dir/?api=1&origin={ref_lat},{ref_lon}&destination={p['lat']},{p['lon']}"
-            else:
-                maps_url = f"https://www.google.com/maps/dir/?api=1&destination={p['lat']},{p['lon']}"
+    map_layers = [layer_points]
 
-            cards_html += f"""<div class="nearby-center-item" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;"><div class="nearby-item-left"><div class="nearby-item-icon" style="color: {tag_color};"><span class="material-symbols-outlined">{icon_name}</span></div><div><div class="nearby-item-name">{p['nombre']}</div><div class="nearby-item-meta">{p.get('tipo', 'Punto Verde')} • {p.get('direccion', '')} • Comuna {p['comuna']} • <b>{p['dist_km']:.1f} km</b></div></div></div><div style="text-align:right;"><a href="{maps_url}" target="_blank" class="maps-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">directions</span> Cómo llegar en Google Maps</a></div></div>"""
-
-        st.markdown(f'<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 1.25rem;">{cards_html}</div>', unsafe_allow_html=True)
-
-        st.markdown("#### 🗺️ Ubicaciones Geolocalizadas (Pasá el cursor o tocá un punto)")
-
-        # Colores pydeck: Verde para Punto Verde, Rojo para Especial, Azul para Centro Verde
-        def get_color_pdk(row):
-            t = str(row.get("tipo", ""))
-            if "Especial" in t:
-                return [239, 68, 68, 220]
-            elif "Centro Verde" in t:
-                return [15, 23, 42, 220]
-            else:
-                return [16, 185, 129, 220]
-
-        df_map_render = df_filtrado_mapa.copy()
-        df_map_render["color"] = df_map_render.apply(get_color_pdk, axis=1)
-
-        layer_points = pdk.Layer(
+    if has_user_gps:
+        df_user_pin = pd.DataFrame([{
+            "lat": ref_lat,
+            "lon": ref_lon,
+            "nombre": "📍 Tu Posición Actual (GPS)",
+            "direccion": "Ubicación detectada por tu navegador",
+            "tipo": "Mi Ubicación",
+            "horario": "En tiempo real",
+            "comuna": "Tu Comuna",
+            "estado": "GPS Activo",
+            "color": [37, 99, 235, 255]
+        }])
+        layer_user = pdk.Layer(
             "ScatterplotLayer",
-            data=df_map_render,
+            data=df_user_pin,
             get_position=["lon", "lat"],
             get_color="color",
-            get_radius=220,
+            get_radius=320,
             pickable=True,
             auto_highlight=True,
         )
+        map_layers.append(layer_user)
 
-        map_layers = [layer_points]
+    view_state = pdk.ViewState(
+        latitude=ref_lat if (has_user_gps or filtro_comuna != "Todas") else (float(df_map_render["lat"].mean()) if not df_map_render.empty else -34.6037),
+        longitude=ref_lon if (has_user_gps or filtro_comuna != "Todas") else (float(df_map_render["lon"].mean()) if not df_map_render.empty else -58.3816),
+        zoom=13.0 if has_user_gps else (12.0 if filtro_comuna != "Todas" else 11.2),
+        pitch=0,
+    )
 
-        if has_user_gps:
-            df_user_pin = pd.DataFrame([{
-                "lat": ref_lat,
-                "lon": ref_lon,
-                "nombre": "📍 Tu Posición Actual (GPS)",
-                "direccion": "Ubicación detectada por tu navegador",
-                "tipo": "Mi Ubicación",
-                "horario": "En tiempo real",
-                "comuna": "Tu Comuna",
-                "estado": "GPS Activo",
-                "color": [37, 99, 235, 255]
-            }])
-            layer_user = pdk.Layer(
-                "ScatterplotLayer",
-                data=df_user_pin,
-                get_position=["lon", "lat"],
-                get_color="color",
-                get_radius=320,
-                pickable=True,
-                auto_highlight=True,
-            )
-            map_layers.append(layer_user)
-
-        view_state = pdk.ViewState(
-            latitude=ref_lat if (has_user_gps or filtro_comuna != "Todas") else (float(df_map_render["lat"].mean()) if not df_map_render.empty else -34.6037),
-            longitude=ref_lon if (has_user_gps or filtro_comuna != "Todas") else (float(df_map_render["lon"].mean()) if not df_map_render.empty else -58.3816),
-            zoom=13.0 if has_user_gps else (12.0 if filtro_comuna != "Todas" else 11.2),
-            pitch=0,
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=map_layers,
+            initial_view_state=view_state,
+            tooltip={
+                "html": "<div style='font-family: sans-serif; font-size: 13px; line-height: 1.4;'>"
+                        "<b style='font-size: 14px; color: #A7F3D0;'>{nombre}</b><br/>"
+                        "📍 <b>Dirección:</b> {direccion}<br/>"
+                        "🏷️ <b>Tipo:</b> {tipo}<br/>"
+                        "🕒 <b>Horario:</b> {horario}<br/>"
+                        "📌 <b>Comuna:</b> {comuna}<br/>"
+                        "🟢 <b>Estado:</b> {estado}</div>",
+                "style": {
+                    "backgroundColor": "#0F172A",
+                    "color": "#FFFFFF",
+                    "borderRadius": "10px",
+                    "padding": "10px 14px",
+                    "boxShadow": "0 4px 12px rgba(0,0,0,0.2)"
+                }
+            },
+            map_style="light"
         )
+    )
 
-        st.pydeck_chart(
-            pdk.Deck(
-                layers=map_layers,
-                initial_view_state=view_state,
-                tooltip={
-                    "html": "<div style='font-family: sans-serif; font-size: 13px; line-height: 1.4;'>"
-                            "<b style='font-size: 14px; color: #A7F3D0;'>{nombre}</b><br/>"
-                            "📍 <b>Dirección:</b> {direccion}<br/>"
-                            "🏷️ <b>Tipo:</b> {tipo}<br/>"
-                            "🕒 <b>Horario:</b> {horario}<br/>"
-                            "📌 <b>Comuna:</b> {comuna}<br/>"
-                            "🟢 <b>Estado:</b> {estado}</div>",
-                    "style": {
-                        "backgroundColor": "#0F172A",
-                        "color": "#FFFFFF",
-                        "borderRadius": "10px",
-                        "padding": "10px 14px",
-                        "boxShadow": "0 4px 12px rgba(0,0,0,0.2)"
-                    }
-                },
-                map_style="light"
-            )
-        )
+    st.markdown(f"#### 📋 Detalle ({len(df_filtrado_mapa)} ubicaciones)")
+    for _, row in df_filtrado_mapa.iterrows():
+        tipo = row.get("tipo", "Punto Verde")
+        admin = f" · Admin: {row['administra']}" if "administra" in row and pd.notnull(row["administra"]) else ""
+        estado_badge = "🟢 " + str(row.get("estado", "Operativo")) if "Abierto" in str(row.get("estado", "")) or "Operativo" in str(row.get("estado", "")) else "🔴 " + str(row.get("estado", ""))
 
-        st.markdown(f"#### 📋 Detalle ({len(df_filtrado_mapa)} ubicaciones)")
-        for _, row in df_filtrado_mapa.iterrows():
-            tipo = row.get("tipo", "Punto Verde")
-            admin = f" · Admin: {row['administra']}" if "administra" in row and pd.notnull(row["administra"]) else ""
-            estado_badge = "🟢 " + str(row.get("estado", "Operativo")) if "Abierto" in str(row.get("estado", "")) or "Operativo" in str(row.get("estado", "")) else "🔴 " + str(row.get("estado", ""))
-
-            with st.expander(f"{tipo}: {row['nombre']} — Comuna {row['comuna']}{admin} ({estado_badge})"):
-                st.markdown(f"""
+        with st.expander(f"{tipo}: {row['nombre']} — Comuna {row['comuna']}{admin} ({estado_badge})"):
+            st.markdown(f"""
 - **Dirección:** `{row['direccion']}`
 - **Barrio / Comuna:** `{row.get('barrio', '')}` (Comuna {row['comuna']})
 - **Horario:** `{row.get('horario', 'Consultar')}`
@@ -1258,146 +1218,15 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
 - **Navegación:** [🧭 Abrir ruta en Google Maps](https://www.google.com/maps/dir/?api=1&destination={row['lat']},{row['lon']})
 """)
 
-        st.divider()
-        st.markdown("### 📚 Guía Oficial GCBA: Residuos Especiales")
-        for cat_id, cat_info in CATEGORIAS_OFICIALES_GCBA.items():
-            with st.expander(f"{cat_info['titulo']}"):
-                st.markdown(f"""
+    st.divider()
+    st.markdown("### 📚 Guía Oficial GCBA: Residuos Especiales")
+    for cat_id, cat_info in CATEGORIAS_OFICIALES_GCBA.items():
+        with st.expander(f"{cat_info['titulo']}"):
+            st.markdown(f"""
 - **Materiales recibidos:** {cat_info['items']}
 - **Condición de entrega:** {cat_info['condicion']}
 - **Destino obligatorio Punto Verde:** `{'Sí (No tirar a tachos de calle)' if cat_info['obligatorio_punto_verde'] else 'Opcional'}`
 """)
-
-# ─── Panel Lateral (Dashboard Widgets 30%) ────────────────────────────────────
-with col_side:
-    # ── Widget 1: Meta Diaria ──
-    st.markdown(f"""
-<div class="side-widget-card">
-  <div class="side-widget-title">
-    <span class="material-symbols-outlined" style="font-size:16px; color:#10B981;">flag</span>
-    Meta Diaria de Clasificación
-  </div>
-  <div style="display:flex; align-items:baseline; gap:6px;">
-    <span class="metric-num-highlight">{daily_current}</span>
-    <span class="metric-target-sub">/ {daily_target} residuos</span>
-  </div>
-  <div class="progress-track-emerald">
-    <div class="progress-fill-emerald" style="width: {progress_pct}%;"></div>
-  </div>
-  <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#64748B; font-weight:600;">
-    <span>Progreso barrial</span>
-    <span style="color:#059669;">{progress_pct}% completado</span>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-    # ── Widget 2: Impacto Ecológico Estimado ──
-    kg_estimados = daily_current * 0.25
-    co2_estimado = daily_current * 0.38
-    st.markdown(f"""
-<div class="side-widget-card">
-  <div class="side-widget-title">
-    <span class="material-symbols-outlined" style="font-size:16px; color:#10B981;">eco</span>
-    Impacto Ecológico Estimado
-  </div>
-  <div class="impact-stat-row">
-    <span class="impact-stat-label">
-      <span class="material-symbols-outlined" style="font-size:16px; color:#059669;">recycling</span>
-      Recuperables reciclados
-    </span>
-    <span class="impact-stat-val">~{kg_estimados:.1f} kg</span>
-  </div>
-  <div class="impact-stat-row">
-    <span class="impact-stat-label">
-      <span class="material-symbols-outlined" style="font-size:16px; color:#059669;">cloud_off</span>
-      CO₂ evitado en CABA
-    </span>
-    <span class="impact-stat-val">~{co2_estimado:.1f} kg</span>
-  </div>
-  <div class="impact-stat-row">
-    <span class="impact-stat-label">
-      <span class="material-symbols-outlined" style="font-size:16px; color:#059669;">domain</span>
-      Trazabilidad cooperativas
-    </span>
-    <span class="impact-stat-val">100% GCBA</span>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-    # ── Widget 3: Último Diagnóstico o Guía Rápida ──
-    ultimo = st.session_state.get("ultimo_residuo")
-    if ultimo:
-        det_label = ultimo.get("label", "Residuo")
-        det_emoji = ultimo.get("emoji", "♻️")
-        det_tipo = ultimo.get("tipo", "Contenedor Verde")
-        det_esp = ultimo.get("es_especial", False)
-        badge_bg = "#FEE2E2" if det_esp else "#ECFDF5"
-        badge_txt = "#991B1B" if det_esp else "#064E3B"
-        border_col = "#EF4444" if det_esp else "#10B981"
-        badge_text = "● Especial" if det_esp else "● Reciclable"
-        st.markdown(f"""
-<div class="side-widget-card" style="border-left: 4px solid {border_col};">
-  <div class="side-widget-title">
-    <span class="material-symbols-outlined" style="font-size:16px; color:{border_col};">history</span>
-    Último Residuo Detectado
-  </div>
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-    <span style="font-weight:700; font-size:0.95rem; color:#0F172A;">{det_emoji} {det_label}</span>
-    <span style="background:{badge_bg}; color:{badge_txt}; padding:2px 8px; border-radius:9999px; font-size:0.75rem; font-weight:700;">{badge_text}</span>
-  </div>
-  <div style="font-size:0.8rem; color:#64748B; line-height:1.4;">
-    <b>Destino:</b> {det_tipo}
-  </div>
-</div>
-""", unsafe_allow_html=True)
-    else:
-        st.markdown("""
-<div class="side-widget-card">
-  <div class="side-widget-title">
-    <span class="material-symbols-outlined" style="font-size:16px; color:#10B981;">lightbulb</span>
-    Guía Rápida de Separación
-  </div>
-  <div class="guide-mini-item">
-    <div class="guide-dot" style="background:#10B981;"></div>
-    <div><b>Contenedor Verde:</b> Plásticos, papeles, cartones, metales y vidrios secos y limpios.</div>
-  </div>
-  <div class="guide-mini-item">
-    <div class="guide-dot" style="background:#EF4444;"></div>
-    <div><b>Punto Verde:</b> RAEE, pilas, lámparas y aceite vegetal usado.</div>
-  </div>
-  <div class="guide-mini-item">
-    <div class="guide-dot" style="background:#64748B;"></div>
-    <div><b>Contenedor Negro:</b> Restos húmedos y residuos no reciclables.</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-    # ── Widget 4: Motor de Visión IA ──
-    st.markdown(f"""
-<div class="side-widget-card">
-  <div class="side-widget-title">
-    <span class="material-symbols-outlined" style="font-size:16px; color:#10B981;">neurology</span>
-    Motor de Visión IA
-  </div>
-  <div style="display:flex; flex-direction:column; gap:8px; font-size:0.8rem; color:#64748B;">
-    <div style="display:flex; justify-content:space-between;">
-      <span>Modelo activo:</span>
-      <b style="color:#0F172A;">YOLOv8 Residuos</b>
-    </div>
-    <div style="display:flex; justify-content:space-between;">
-      <span>Filtro de personas:</span>
-      <span style="color:#059669; font-weight:600;">Activo (Automático)</span>
-    </div>
-    <div style="display:flex; justify-content:space-between;">
-      <span>Aprendizaje continuo:</span>
-      <b style="color:#0F172A;">{total_feedbacks} correcciones</b>
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-
-
 
 # ─── Footer ──────────────────────────────────────────────────────────────────
 st.divider()
