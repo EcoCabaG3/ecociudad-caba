@@ -5,14 +5,21 @@ Tecnicatura en Ciencia de Datos e IA - IFTS N° 11
 import os
 import time
 import base64
+import threading
 import warnings
 from pathlib import Path
 
-# Configurar directorio de Ultralytics para evitar warning en entornos cloud de solo lectura
-os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/Ultralytics")
+import tempfile
+
+# Configurar directorio temporal de Ultralytics (evita advertencia de directorios duplicados o de solo lectura)
+os.environ["YOLO_CONFIG_DIR"] = tempfile.gettempdir()
+os.environ["YOLO_VERBOSE"] = "False"
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# ─── Patch de Resiliencia para aioice / WebRTC en Python 3.14 (Streamlit Cloud) ─ En Python 3.14, cuando una conexión WebRTC se cierra o falla el handshake STUN, el socket se destruye y el temporizador interno de reintentos provoca un AttributeError al llamar a call_exception_handler con _loop=None.
+# ─── Patch de Resiliencia para aioice / WebRTC en Python 3.14 (Streamlit Cloud) ─
+# En Python 3.14, cuando una conexión WebRTC se cierra o falla el handshake STUN,
+# el socket se destruye y el temporizador interno de reintentos provoca un
+# AttributeError al llamar a call_exception_handler con _loop=None.
 try:
     import aioice.stun
     import aioice.ice
@@ -691,29 +698,52 @@ with tab_live:
         "device_access_denied": "Acceso a la cámara denegado.",
     }
 
-    throttle_state = {
-        "last_inference": 0.0,
+    # Worker asincrono en segundo plano para no bloquear el flujo WebRTC ni saturar la memoria
+    worker_state = {
+        "lock": threading.Lock(),
+        "is_busy": False,
         "cached_detections": [],
+        "last_infer_time": 0.0,
     }
+
+    def _async_infer_task(frame_copy):
+        try:
+            _, detections = run_inference(
+                model,
+                frame_copy,
+                conf_threshold=CONF_THRESH,
+                filter_people=FILTER_PEOPLE,
+                feedback_store=fb_store,
+                imgsz=384,
+            )
+            with worker_state["lock"]:
+                worker_state["cached_detections"] = detections
+        except Exception:
+            pass
+        finally:
+            worker_state["is_busy"] = False
 
     def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
         try:
             img_bgr = frame.to_ndarray(format="bgr24")
             now = time.time()
 
-            if now - throttle_state["last_inference"] >= 0.35:
-                throttle_state["last_inference"] = now
-                _, detections = run_inference(
-                    model,
-                    img_bgr,
-                    conf_threshold=CONF_THRESH,
-                    filter_people=FILTER_PEOPLE,
-                    feedback_store=fb_store,
-                )
-                throttle_state["cached_detections"] = detections
+            # Disparar inferencia en segundo plano cada 0.35s sin demorar el video en tiempo real
+            if not worker_state["is_busy"] and (now - worker_state["last_infer_time"] >= 0.35):
+                worker_state["is_busy"] = True
+                worker_state["last_infer_time"] = now
+                threading.Thread(
+                    target=_async_infer_task,
+                    args=(img_bgr.copy(),),
+                    daemon=True
+                ).start()
 
-            if throttle_state["cached_detections"]:
-                annotated = draw_detections(img_bgr, throttle_state["cached_detections"])
+            # Dibujo instantaneo sobre el frame actual (<2ms)
+            with worker_state["lock"]:
+                current_dets = list(worker_state["cached_detections"])
+
+            if current_dets:
+                annotated = draw_detections(img_bgr, current_dets)
                 return av.VideoFrame.from_ndarray(annotated, format="bgr24")
             return frame
         except Exception:
@@ -724,7 +754,14 @@ with tab_live:
         mode=WebRtcMode.SENDRECV,
         rtc_configuration=RTC_CONFIG,
         video_frame_callback=video_frame_callback,
-        media_stream_constraints={"video": True, "audio": False},
+        media_stream_constraints={
+            "video": {
+                "width": {"ideal": 640, "max": 640},
+                "height": {"ideal": 480, "max": 480},
+                "frameRate": {"ideal": 15, "max": 20},
+            },
+            "audio": False,
+        },
         desired_playing_state=None,
         async_processing=True,
         translations=RTC_TRANSLATIONS,
