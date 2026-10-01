@@ -12,10 +12,7 @@ from pathlib import Path
 os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/Ultralytics")
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# ─── Patch de Resiliencia para aioice / WebRTC en Python 3.14 (Streamlit Cloud) ─
-# En Python 3.14, cuando una conexión WebRTC se cierra o falla el handshake STUN,
-# el socket se destruye y el temporizador interno de reintentos provoca un
-# AttributeError al llamar a call_exception_handler con _loop=None.
+# ─── Patch de Resiliencia para aioice / WebRTC en Python 3.14 (Streamlit Cloud) ─ En Python 3.14, cuando una conexión WebRTC se cierra o falla el handshake STUN, el socket se destruye y el temporizador interno de reintentos provoca un AttributeError al llamar a call_exception_handler con _loop=None.
 try:
     import aioice.stun
     import aioice.ice
