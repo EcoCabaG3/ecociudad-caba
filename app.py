@@ -634,7 +634,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ─── Variables y Configuración ──────────────────────────────────────────────
-model_choice = "yolov8s_world" if Path("yolov8s-worldv2.pt").exists() else "waste_specialized"
+model_choice = "best" if (Path("models/best.pt").exists() or Path("best.pt").exists()) else ("waste_specialized" if Path("models/waste_yolov8.pt").exists() else ("yolov8s_world" if Path("yolov8s-worldv2.pt").exists() else "yolov8n"))
 CONF_THRESH = 0.28
 FILTER_PEOPLE = True
 
