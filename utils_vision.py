@@ -4,6 +4,11 @@ utils_vision.py - Deteccion, analisis espacial y clasificacion de residuos EcoCi
 import os
 import math
 import numpy as np
+import torch
+
+# Limitar PyTorch a 1 hilo en entornos cloud limitados (1 vCPU, 1GB RAM) para evitar saturacion y caidas OOM
+torch.set_num_threads(1)
+
 import streamlit as st
 from ultralytics import YOLO
 from feedback_store import calculate_boosted_confidence
@@ -100,7 +105,16 @@ WASTE_MAP = {
 
     # Organicos y Sanitario
     "organic":              {"label": "Residuo Organico",     "emoji": "🍂", "tipo": "Compost / Bolsa Negra",     "color": (139, 69, 19),   "accion": "Ideal para compostera domiciliaria o recepcion organica de Punto Verde.", "es_especial": False},
+    "biological":           {"label": "Residuo Organico / Biologico", "emoji": "🍂", "tipo": "Compost / Bolsa Negra", "color": (139, 69, 19), "accion": "Ideal para compostera domiciliaria o recepcion organica de Punto Verde.", "es_especial": False},
     "medical":              {"label": "Residuo Sanitario",    "emoji": "⚠️", "tipo": "Residuo Peligroso",        "color": (192, 57, 43),   "accion": "Descartar en bolsa cerrada especial o punto farmaceutico.", "es_especial": True},
+
+    # Textiles y Calzado
+    "clothes":              {"label": "Ropa / Textil",        "emoji": "👕", "tipo": "Donación / Residuo Especial", "color": (155, 89, 182), "accion": "En buen estado donar a ONGs o ferias. Ropa rota a Punto Verde o bolsa negra.", "es_especial": False},
+    "shoes":                {"label": "Calzado / Zapatos",    "emoji": "👟", "tipo": "Donación / Basura Comun",     "color": (155, 89, 182), "accion": "En buen estado donar a ferias o instituciones. Calzado roto a bolsa negra.", "es_especial": False},
+    "shoe":                 {"label": "Calzado / Zapatos",    "emoji": "👟", "tipo": "Donación / Basura Comun",     "color": (155, 89, 182), "accion": "En buen estado donar a ferias o instituciones. Calzado roto a bolsa negra.", "es_especial": False},
+
+    # Basura General
+    "trash":                {"label": "Basura General",       "emoji": "🗑️", "tipo": "Basura Comun (Bolsa Negra)",  "color": (127, 140, 141), "accion": "Depositar en bolsa negra de residuos comunes no reciclables.", "es_especial": False},
 }
 
 # Mapa de subcadenas keyword → clave base en WASTE_MAP (fallback por substring)
@@ -129,7 +143,12 @@ _KEYWORD_FALLBACK = [
     ("battery",    "battery"),
     ("batteries",  "battery"),
     ("pila",       "battery"),
+    ("biological", "biological"),
     ("organic",    "organic"),
+    ("clothes",    "clothes"),
+    ("shoes",      "shoes"),
+    ("shoe",       "shoes"),
+    ("trash",      "trash"),
     ("oil",        "oil"),
     ("aceite",     "oil"),
 ]
@@ -140,7 +159,7 @@ IGNORED_CLASSES = {
     "person", "hand", "face", "head", "body", "arm", "finger",
     "chair", "couch", "bed", "dining table", "tv", "laptop-screen",
     "refrigerator", "microwave", "oven", "sink", "door", "window", "cabinet",
-    "clothes", "toilet", "clock", "vase", "potted plant",
+    "toilet", "clock", "vase", "potted plant",
     "wall", "floor", "ceiling", "shelf"
 }
 
@@ -153,17 +172,27 @@ DEFAULT_WASTE = {
 }
 
 MODEL_PATHS = {
-    "waste_specialized": "models/waste_yolov8.pt",
+    "best": "models/best.pt",
+    "waste_specialized": "models/best.pt" if os.path.exists("models/best.pt") else "models/waste_yolov8.pt",
     "yolov8n": "yolov8n.pt",
     "yolov8s_world": "yolov8s-worldv2.pt",
 }
 
 
 @st.cache_resource(show_spinner="Cargando modelo de IA...")
-def load_model(model_key: str = "yolov8s_world") -> YOLO:
-    path = MODEL_PATHS.get(model_key, "yolov8s-worldv2.pt")
+def load_model(model_key: str = "best") -> YOLO:
+    path = MODEL_PATHS.get(model_key, "models/best.pt")
     if not os.path.exists(path):
-        path = "models/waste_yolov8.pt" if os.path.exists("models/waste_yolov8.pt") else "yolov8n.pt"
+        if os.path.exists("models/best.pt"):
+            path = "models/best.pt"
+        elif os.path.exists("best.pt"):
+            path = "best.pt"
+        elif os.path.exists("models/waste_yolov8.pt"):
+            path = "models/waste_yolov8.pt"
+        elif os.path.exists("yolov8s-worldv2.pt"):
+            path = "yolov8s-worldv2.pt"
+        else:
+            path = "yolov8n.pt"
     model = YOLO(path)
     if "world" in str(path):
         model.set_classes([
@@ -317,74 +346,117 @@ def run_inference(
     conf_threshold: float = 0.28,
     filter_people: bool = True,
     feedback_store: dict | None = None,
+    imgsz: int = 480,
 ) -> tuple[np.ndarray, list[dict]]:
     """
     Ejecuta deteccion YOLO con soporte multi-objeto, analisis espacial y auto-aprendizaje.
+    Usa torch.inference_mode() e imgsz optimizado para evitar fugas de memoria y caidas OOM.
     """
     h_img, w_img = frame_bgr.shape[:2]
     frame_area = w_img * h_img
 
-    results = model(frame_bgr, conf=conf_threshold, verbose=False)[0]
+    infer_imgsz = 224 if getattr(model, "task", None) == "classify" else imgsz
+    with torch.inference_mode():
+        results = model(frame_bgr, conf=conf_threshold, imgsz=infer_imgsz, verbose=False)[0]
     raw_detections = []
 
-    for box in results.boxes:
-        cls_id   = int(box.cls[0])
-        cls_name = model.names[cls_id].lower()
-        conf     = float(box.conf[0])
+    # Soporte para modelos de clasificacion (YOLOv8-cls, como best.pt)
+    if getattr(results, "probs", None) is not None:
+        probs = results.probs
+        top1_id = int(probs.top1)
+        top1_conf = float(probs.top1conf)
+        cls_name = model.names[top1_id].lower()
 
-        # Filtro estricto para evitar falsas alarmas de celular en botellas/envases
-        if cls_name in ("cell phone", "smartphone") and conf < 0.38:
-            continue
+        if top1_conf >= conf_threshold:
+            info = get_waste_info(cls_name) or DEFAULT_WASTE
+            # Bounding box central representativo para visualizacion y analisis espacial
+            bbox = (int(w_img * 0.08), int(h_img * 0.08), int(w_img * 0.92), int(h_img * 0.92))
+            is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
-        # Filtro de clases ignoradas
-        if filter_people and cls_name in IGNORED_CLASSES:
-            continue
+            effective_conf, boost_applied = calculate_boosted_confidence(
+                cls_name=cls_name,
+                raw_conf=top1_conf,
+                predicted_cls=cls_name,
+                is_held_in_center=is_held_in_center,
+                store=feedback_store
+            )
 
-        # Evitar falsos positivos de pantalla completa / pared (solo si abarca literalmente todo el encuadre)
-        bbox = tuple(map(int, box.xyxy[0].tolist()))
-        x1, y1, x2, y2 = bbox
-        bw, bh = x2 - x1, y2 - y1
-        area_ratio = (bw * bh) / float(frame_area)
+            raw_detections.append({
+                "clase":             cls_name,
+                "label":             info["label"],
+                "emoji":             info.get("emoji", "📦"),
+                "tipo":              info["tipo"],
+                "accion":            info["accion"],
+                "es_especial":       info.get("es_especial", False),
+                "confianza":         effective_conf,
+                "confianza_raw":     top1_conf,
+                "boost_applied":     boost_applied,
+                "is_held_in_center": is_held_in_center,
+                "center_score":      center_score,
+                "hand_detected":     hand_detected,
+                "bbox":              bbox,
+            })
 
-        # Una caja grande (ej: encomienda o pizza) puede ocupar 50%, 60% o 75% del marco.
-        # Solo descartamos cuando la detección abarca de borde a borde toda la captura (>92% ancho Y alto o >88% área con baja confianza)
-        is_full_frame_bg = (bw > 0.92 * w_img and bh > 0.92 * h_img) or (area_ratio > 0.88 and conf < 0.40)
-        if is_full_frame_bg:
-            continue
+    # Soporte para modelos de deteccion con cajas delimitadoras (YOLOv8-det)
+    elif getattr(results, "boxes", None) is not None and len(results.boxes) > 0:
+        for box in results.boxes:
+            cls_id   = int(box.cls[0])
+            cls_name = model.names[cls_id].lower()
+            conf     = float(box.conf[0])
 
-        # Filtro estricto para ruido de 'carton' en fondo
-        if cls_name in ("cardboard", "carton") and conf < 0.30:
-            continue
+            # Filtro estricto para evitar falsas alarmas de celular en botellas/envases
+            if cls_name in ("cell phone", "smartphone") and conf < 0.38:
+                continue
 
-        info = get_waste_info(cls_name)
-        if info is None:
-            continue
+            # Filtro de clases ignoradas
+            if filter_people and cls_name in IGNORED_CLASSES:
+                continue
 
-        is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
+            # Evitar falsos positivos de pantalla completa / pared (solo si abarca literalmente todo el encuadre)
+            bbox = tuple(map(int, box.xyxy[0].tolist()))
+            x1, y1, x2, y2 = bbox
+            bw, bh = x2 - x1, y2 - y1
+            area_ratio = (bw * bh) / float(frame_area)
 
-        effective_conf, boost_applied = calculate_boosted_confidence(
-            cls_name=cls_name,
-            raw_conf=conf,
-            predicted_cls=cls_name,
-            is_held_in_center=is_held_in_center,
-            store=feedback_store
-        )
+            # Una caja grande (ej: encomienda o pizza) puede ocupar 50%, 60% o 75% del marco.
+            # Solo descartamos cuando la detección abarca de borde a borde toda la captura (>92% ancho Y alto o >88% área con baja confianza)
+            is_full_frame_bg = (bw > 0.92 * w_img and bh > 0.92 * h_img) or (area_ratio > 0.88 and conf < 0.40)
+            if is_full_frame_bg:
+                continue
 
-        raw_detections.append({
-            "clase":             cls_name,
-            "label":             info["label"],
-            "emoji":             info.get("emoji", "📦"),
-            "tipo":              info["tipo"],
-            "accion":            info["accion"],
-            "es_especial":       info.get("es_especial", False),
-            "confianza":         effective_conf,
-            "confianza_raw":     conf,
-            "boost_applied":     boost_applied,
-            "is_held_in_center": is_held_in_center,
-            "center_score":      center_score,
-            "hand_detected":     hand_detected,
-            "bbox":              bbox,
-        })
+            # Filtro estricto para ruido de 'carton' en fondo
+            if cls_name in ("cardboard", "carton") and conf < 0.30:
+                continue
+
+            info = get_waste_info(cls_name)
+            if info is None:
+                continue
+
+            is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
+
+            effective_conf, boost_applied = calculate_boosted_confidence(
+                cls_name=cls_name,
+                raw_conf=conf,
+                predicted_cls=cls_name,
+                is_held_in_center=is_held_in_center,
+                store=feedback_store
+            )
+
+            raw_detections.append({
+                "clase":             cls_name,
+                "label":             info["label"],
+                "emoji":             info.get("emoji", "📦"),
+                "tipo":              info["tipo"],
+                "accion":            info["accion"],
+                "es_especial":       info.get("es_especial", False),
+                "confianza":         effective_conf,
+                "confianza_raw":     conf,
+                "boost_applied":     boost_applied,
+                "is_held_in_center": is_held_in_center,
+                "center_score":      center_score,
+                "hand_detected":     hand_detected,
+                "bbox":              bbox,
+            })
 
     # Non-Maximum Suppression (NMS) para eliminar solapamientos duplicados del mismo objeto
     raw_detections.sort(key=lambda d: d["confianza"] + (0.15 if d["is_held_in_center"] else 0.0), reverse=True)
