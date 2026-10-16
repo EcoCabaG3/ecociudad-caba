@@ -76,10 +76,12 @@ st.set_page_config(
 
 def get_logo_base64() -> str:
     """Carga y codifica en Base64 el archivo logo2.png para renderizado HTML."""
+    base_dir = Path(__file__).resolve().parent
     candidates = [
+        base_dir / "logo2.png",
         Path("logo2.png"),
-        Path(__file__).parent / "logo2.png",
-        Path(__file__).parent.parent / "logo2.png",
+        base_dir.parent / "logo2.png",
+        Path("e:/Backup/2025/Terciario/IA & Datos/4to Cuatri/Proyecto Integrador/logo2.png"),
         Path("d:/Backup/2025/Terciario/IA & Datos/4to Cuatri/Proyecto Integrador/logo2.png"),
     ]
     for p in candidates:
@@ -634,7 +636,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ─── Variables y Configuración ──────────────────────────────────────────────
-model_choice = "best" if (Path("models/best.pt").exists() or Path("best.pt").exists()) else ("waste_specialized" if Path("models/waste_yolov8.pt").exists() else ("yolov8s_world" if Path("yolov8s-worldv2.pt").exists() else "yolov8n"))
+_APP_DIR = Path(__file__).resolve().parent
+model_choice = "best" if ((_APP_DIR / "models" / "best.pt").exists() or Path("models/best.pt").exists() or Path("best.pt").exists()) else ("waste_specialized" if Path("models/waste_yolov8.pt").exists() else ("yolov8s_world" if Path("yolov8s-worldv2.pt").exists() else "yolov8n"))
 CONF_THRESH = 0.28
 FILTER_PEOPLE = True
 
@@ -846,18 +849,20 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
 </div>
 """, unsafe_allow_html=True)
                 quick_materials = [
-                    ("plastic",   "🧴 Plástico / Pote"),
-                    ("oil",       "🍳 Aceite AVU"),
-                    ("battery",   "🔋 Pila / Batería"),
-                    ("vape",      "⚡ Vaper / RAEE"),
-                    ("cardboard", "📦 Cartón"),
-                    ("metal",     "🥫 Metal / Lata"),
-                    ("glass",     "🍾 Vidrio"),
-                    ("paper",     "📄 Papel"),
+                    ("plastic",    "🧴 Plástico / Pote"),
+                    ("cardboard",  "📦 Cartón"),
+                    ("paper",      "📄 Papel"),
+                    ("glass",      "🍾 Vidrio"),
+                    ("metal",      "🥫 Metal / Lata"),
+                    ("battery",    "🔋 Pila / Batería"),
+                    ("biological", "🍂 Orgánico / Restos"),
+                    ("clothes",    "👕 Ropa / Textil"),
+                    ("shoes",      "👟 Calzado"),
+                    ("trash",      "🗑️ Basura Común"),
                 ]
-                cols_btn = st.columns(4)
+                cols_btn = st.columns(5)
                 for idx, (mat_key, mat_label) in enumerate(quick_materials):
-                    col_target = cols_btn[idx % 4]
+                    col_target = cols_btn[idx % 5]
                     if col_target.button(mat_label, key=f"btn_fb_empty_{mat_key}", width="stretch"):
                         info = get_waste_info(mat_key)
                         new_store = add_correction(
@@ -882,10 +887,12 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
             else:
                 st.session_state.ultimo_residuo = display_detections[0]
                 has_special = any(d.get("es_especial", False) for d in display_detections)
+                has_black_bag = any("Bolsa Negra" in d.get("tipo", "") or "Compost" in d.get("tipo", "") for d in display_detections)
+                has_donation = any("Donación" in d.get("tipo", "") for d in display_detections)
                 is_held = display_detections[0].get("is_held_in_center", False)
 
                 m1, m2 = st.columns(2)
-                m1.metric("Residuos detectados", len(display_detections))
+                m1.metric("Confianza IA", f"{display_detections[0].get('confianza', 1.0):.0%}")
                 if active_override:
                     m2.metric("Estado de análisis", "Confirmado por Usuario")
                 else:
@@ -913,28 +920,35 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                     tipo = det["tipo"]
                     label = det["label"]
                     es_esp = det.get("es_especial", False)
+                    is_black = "Bolsa Negra" in tipo or "Compost" in tipo
+                    is_don = "Donación" in tipo
                     card_cls = "det-card special" if es_esp else "det-card"
                     if not es_esp:
-                        if "Vidrio" in label:
+                        if "Vidrio" in label or "CD" in label or "Disco" in label:
                             card_cls += " glass"
                         elif "Carton" in label or "Papel" in label:
                             card_cls += " paper"
-                        elif "Metal" in label or "Lata" in label:
+                        elif "Metal" in label or "Lata" in label or is_black:
                             card_cls += " metal"
-                        elif "CD" in label or "Disco" in label:
-                            card_cls += " glass"
 
                     held_tag = " · 🖐️ En mano" if det.get("is_held_in_center") else ""
                     boost_tag = " ✦ Auto-aprendido" if det.get("boost_applied") else ""
+                    conf_pct = f" ({det.get('confianza', 1.0):.0%})"
 
                     if det.get("user_confirmed"):
-                        badge_text = "● Confirmado"
+                        badge_text = "● Confirmado (100%)"
                         badge_class = "ecoscan-badge"
                     elif es_esp:
-                        badge_text = "● Residuo Especial"
+                        badge_text = f"● Residuo Especial{conf_pct}"
                         badge_class = "ecoscan-badge ecoscan-badge-special"
+                    elif is_don:
+                        badge_text = f"● Textil / Donación{conf_pct}"
+                        badge_class = "ecoscan-badge"
+                    elif is_black:
+                        badge_text = f"● Húmedo / Bolsa Negra{conf_pct}"
+                        badge_class = "ecoscan-badge"
                     else:
-                        badge_text = "● Reciclable Seco"
+                        badge_text = f"● Reciclable Seco{conf_pct}"
                         badge_class = "ecoscan-badge"
 
                     prefix = f"#{idx+1} " if len(display_detections) > 1 else ""
@@ -957,8 +971,12 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                 # ── Opcionalidad de Puntos Verdes según el tipo de residuo ──
                 st.divider()
                 if has_special:
-                    st.error("🔴 **RESIDUO ESPECIAL DETECTADO:** Al menos uno de los materiales **NO debe tirarse en el contenedor verde ni negro**. Requiere Punto Verde o Punto Verde Móvil.")
-                    st.info("👉 Consultá la pestaña **'📍 Red de Puntos Verdes'** para ver el mapa y horarios del punto más cercano a tu Comuna.")
+                    st.error("🔴 **RESIDUO ESPECIAL DETECTADO:** Este material **NO debe tirarse en el contenedor verde ni negro**. Requiere Punto Verde o Punto Verde Móvil.")
+                    st.info("👉 Consultá la pestaña **'📍 Red de Puntos Verdes'** para ver el mapa y horarios del punto habilitado más cercano a tu Comuna.")
+                elif has_donation:
+                    st.info("🟣 **Textil / Calzado:** Si está en buen estado, donalo a ONGs, iglesias o ferias barriales. Si son restos textiles limpios, podés acercarlos a un **Punto Verde**; si están sucios o rotos, van en **Bolsa Negra**.")
+                elif has_black_bag:
+                    st.warning("⚫ **Disposición en Contenedor Negro / Compostera:** Este residuo corresponde a **Basura Común o Restos Orgánicos**. **NO arrojar en el Contenedor Verde** para no contaminar los materiales reciclables.")
                 else:
                     st.success("🟢 **Disposición en Origen:** Podés depositar estos materiales directamente en el **Contenedor Verde** de tu cuadra (limpios y secos).")
                     with st.expander("📍 ¿Querés llevarlos a un Punto Verde o Centro de Cooperativa? (Opcional)"):
@@ -984,20 +1002,22 @@ Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda
 """, unsafe_allow_html=True)
 
                     quick_materials = [
-                        ("plastic",   "🧴 Plástico / Pote"),
-                        ("oil",       "🍳 Aceite AVU"),
-                        ("battery",   "🔋 Pila / Batería"),
-                        ("vape",      "⚡ Vaper / RAEE"),
-                        ("cardboard", "📦 Cartón"),
-                        ("metal",     "🥫 Metal / Lata"),
-                        ("glass",     "🍾 Vidrio"),
-                        ("paper",     "📄 Papel"),
+                        ("plastic",    "🧴 Plástico / Pote"),
+                        ("cardboard",  "📦 Cartón"),
+                        ("paper",      "📄 Papel"),
+                        ("glass",      "🍾 Vidrio"),
+                        ("metal",      "🥫 Metal / Lata"),
+                        ("battery",    "🔋 Pila / Batería"),
+                        ("biological", "🍂 Orgánico / Restos"),
+                        ("clothes",    "👕 Ropa / Textil"),
+                        ("shoes",      "👟 Calzado"),
+                        ("trash",      "🗑️ Basura Común"),
                     ]
 
                     st.write("")
-                    cols_btn = st.columns(4)
+                    cols_btn = st.columns(5)
                     for idx, (mat_key, mat_label) in enumerate(quick_materials):
-                        col_target = cols_btn[idx % 4]
+                        col_target = cols_btn[idx % 5]
                         if col_target.button(mat_label, key=f"btn_fb_{mat_key}", width="stretch"):
                             info = get_waste_info(mat_key)
                             pred_cls = detections[0]["clase"] if detections else "unknown"
@@ -1125,6 +1145,8 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
 
     puntos_con_dist = []
     for p in todos_puntos:
+        if "Cerrado" in str(p.get("estado", "")):
+            continue
         p_copy = dict(p)
         p_copy["dist_km"] = calc_dist(p)
         puntos_con_dist.append(p_copy)
@@ -1158,8 +1180,10 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
 
     st.markdown("#### 🗺️ Ubicaciones Geolocalizadas (Pasá el cursor o tocá un punto)")
 
-    # Colores pydeck: Verde para Punto Verde, Rojo para Especial, Azul para Centro Verde
+    # Colores pydeck: Verde para Punto Verde, Rojo para Especial, Azul oscuro para Centro Verde, Gris para Cerrado
     def get_color_pdk(row):
+        if "Cerrado" in str(row.get("estado", "")):
+            return [148, 163, 184, 190]
         t = str(row.get("tipo", ""))
         if "Especial" in t:
             return [239, 68, 68, 220]
@@ -1168,7 +1192,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         else:
             return [16, 185, 129, 220]
 
-    df_map_render = df_filtrado_mapa.copy()
+    df_map_render = df_filtrado_mapa.copy().fillna("")
     df_map_render["color"] = df_map_render.apply(get_color_pdk, axis=1)
 
     layer_points = pdk.Layer(
