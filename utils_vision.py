@@ -171,28 +171,35 @@ DEFAULT_WASTE = {
     "es_especial": False
 }
 
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+
 MODEL_PATHS = {
-    "best": "models/best.pt",
-    "waste_specialized": "models/best.pt" if os.path.exists("models/best.pt") else "models/waste_yolov8.pt",
-    "yolov8n": "yolov8n.pt",
-    "yolov8s_world": "yolov8s-worldv2.pt",
+    "best": str(BASE_DIR / "models" / "best.pt"),
+    "waste_specialized": str(BASE_DIR / "models" / "best.pt") if (BASE_DIR / "models" / "best.pt").exists() else str(BASE_DIR / "models" / "waste_yolov8.pt"),
+    "yolov8n": str(BASE_DIR / "yolov8n.pt"),
+    "yolov8s_world": str(BASE_DIR / "yolov8s-worldv2.pt"),
 }
 
 
 @st.cache_resource(show_spinner="Cargando modelo de IA...")
 def load_model(model_key: str = "best") -> YOLO:
-    path = MODEL_PATHS.get(model_key, "models/best.pt")
+    path = MODEL_PATHS.get(model_key, str(BASE_DIR / "models" / "best.pt"))
     if not os.path.exists(path):
-        if os.path.exists("models/best.pt"):
-            path = "models/best.pt"
-        elif os.path.exists("best.pt"):
-            path = "best.pt"
-        elif os.path.exists("models/waste_yolov8.pt"):
-            path = "models/waste_yolov8.pt"
-        elif os.path.exists("yolov8s-worldv2.pt"):
-            path = "yolov8s-worldv2.pt"
-        else:
-            path = "yolov8n.pt"
+        candidates = [
+            BASE_DIR / "models" / "best.pt",
+            Path("models/best.pt"),
+            BASE_DIR / "best.pt",
+            Path("best.pt"),
+            BASE_DIR / "models" / "waste_yolov8.pt",
+            Path("models/waste_yolov8.pt"),
+            BASE_DIR / "yolov8s-worldv2.pt",
+            Path("yolov8s-worldv2.pt"),
+            BASE_DIR / "yolov8n.pt",
+            Path("yolov8n.pt"),
+        ]
+        path = next((str(c) for c in candidates if c.exists()), "yolov8n.pt")
     model = YOLO(path)
     if "world" in str(path):
         model.set_classes([
@@ -365,32 +372,52 @@ def run_inference(
         probs = results.probs
         top1_id = int(probs.top1)
         top1_conf = float(probs.top1conf)
-        cls_name = model.names[top1_id].lower()
+        raw_top1_cls = model.names[top1_id].lower()
 
-        if top1_conf >= conf_threshold:
-            info = get_waste_info(cls_name) or DEFAULT_WASTE
-            # Bounding box central representativo para visualizacion y analisis espacial
-            bbox = (int(w_img * 0.08), int(h_img * 0.08), int(w_img * 0.92), int(h_img * 0.92))
-            is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
+        bbox = (int(w_img * 0.08), int(h_img * 0.08), int(w_img * 0.92), int(h_img * 0.92))
+        is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
-            effective_conf, boost_applied = calculate_boosted_confidence(
-                cls_name=cls_name,
-                raw_conf=top1_conf,
-                predicted_cls=cls_name,
+        # Evaluar candidatos integrando el auto-aprendizaje del feedback_store
+        best_cls = raw_top1_cls
+        best_raw_conf = top1_conf
+        best_eff_conf, best_boost = calculate_boosted_confidence(
+            cls_name=raw_top1_cls,
+            raw_conf=top1_conf,
+            predicted_cls=raw_top1_cls,
+            is_held_in_center=is_held_in_center,
+            store=feedback_store
+        )
+
+        # Revisar top-5 clases del modelo por si el auto-aprendizaje promueve una clase corregida
+        top5_ids = probs.top5 if hasattr(probs, "top5") else [top1_id]
+        for cid in top5_ids:
+            c_name = model.names[int(cid)].lower()
+            c_raw = float(probs.data[int(cid)])
+            c_eff, c_boost = calculate_boosted_confidence(
+                cls_name=c_name,
+                raw_conf=c_raw,
+                predicted_cls=raw_top1_cls,
                 is_held_in_center=is_held_in_center,
                 store=feedback_store
             )
+            if c_eff > best_eff_conf:
+                best_cls = c_name
+                best_raw_conf = c_raw
+                best_eff_conf = c_eff
+                best_boost = c_boost
 
+        if best_eff_conf >= conf_threshold:
+            info = get_waste_info(best_cls) or DEFAULT_WASTE
             raw_detections.append({
-                "clase":             cls_name,
+                "clase":             best_cls,
                 "label":             info["label"],
                 "emoji":             info.get("emoji", "📦"),
                 "tipo":              info["tipo"],
                 "accion":            info["accion"],
                 "es_especial":       info.get("es_especial", False),
-                "confianza":         effective_conf,
-                "confianza_raw":     top1_conf,
-                "boost_applied":     boost_applied,
+                "confianza":         best_eff_conf,
+                "confianza_raw":     best_raw_conf,
+                "boost_applied":     best_boost,
                 "is_held_in_center": is_held_in_center,
                 "center_score":      center_score,
                 "hand_detected":     hand_detected,
