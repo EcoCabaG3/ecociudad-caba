@@ -5,7 +5,8 @@ import json
 import os
 from pathlib import Path
 
-FEEDBACK_PATH = Path("feedback_log.json")
+BASE_DIR = Path(__file__).resolve().parent
+FEEDBACK_PATH = BASE_DIR / "feedback_log.json"
 
 # Hiperparametros de auto-aprendizaje
 BASE_VOTE_BOOST = 0.08      # Boost de confianza por cada confirmacion directa
