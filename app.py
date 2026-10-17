@@ -54,7 +54,14 @@ from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
 
 from utils_vision import load_model, run_inference, draw_detections, get_waste_info
 from feedback_store import load_feedback, add_correction, get_total_corrections
-from puntos_verdes_data import PUNTOS_VERDES_LIST, CENTROS_VERDES_LIST, CATEGORIAS_OFICIALES_GCBA
+from puntos_verdes_data import (
+    PUNTOS_VERDES_LIST,
+    CENTROS_VERDES_LIST,
+    CATEGORIAS_OFICIALES_GCBA,
+    calcular_estado_apertura,
+    get_puntos_habilitados,
+    get_puntos_por_comuna,
+)
 
 # Componente HTML5 de Geolocalizacion GPS
 GEO_DIR = Path(__file__).parent / "components" / "geolocation"
@@ -931,7 +938,6 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                         elif "Metal" in label or "Lata" in label or is_black:
                             card_cls += " metal"
 
-                    held_tag = " · 🖐️ En mano" if det.get("is_held_in_center") else ""
                     boost_tag = " ✦ Auto-aprendido" if det.get("boost_applied") else ""
                     conf_pct = f" ({det.get('confianza', 1.0):.0%})"
 
@@ -962,7 +968,7 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
 </div>
   </div>
   <div style="margin-top:0.5rem; font-size:0.9rem; line-height:1.5;">
-<b>Destino:</b> {det['tipo']}{held_tag}<br>
+<b>Destino:</b> {det['tipo']}<br>
 <b>¿Qué hacer?:</b> {det['accion']}
   </div>
 </div>
@@ -1089,7 +1095,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         13: (-34.5530, -58.4620), 14: (-34.5820, -58.4240), 15: (-34.5840, -58.4580),
     }
 
-    col_f1, col_f2 = st.columns([1.2, 1])
+    col_f1, col_f2, col_f3 = st.columns([1.2, 1, 0.9])
     with col_f1:
         comunas_disponibles = ["Todas"] + list(range(1, 16))
         filtro_comuna = st.selectbox(
@@ -1104,6 +1110,14 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             ["📍 Puntos Verdes (32)", "🏭 Centros Verdes (14)", "🌐 Todos (46)"],
             horizontal=True
         )
+    with col_f3:
+        st.write("")
+        st.write("")
+        solo_abiertos_ahora = st.checkbox(
+            "🟢 Solo abiertos ahora",
+            value=False,
+            help="Filtra los puntos que están abiertos en este momento según el día y reloj de tu dispositivo."
+        )
 
     df_pv = pd.DataFrame(PUNTOS_VERDES_LIST)
     df_cv = pd.DataFrame(CENTROS_VERDES_LIST)
@@ -1114,6 +1128,15 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         df_display = df_cv.copy()
     else:
         df_display = pd.concat([df_pv, df_cv], ignore_index=True)
+
+    # Calcular estado horario en tiempo real para cada fila
+    estados_calculados = [calcular_estado_apertura(dict(r)) for _, r in df_display.iterrows()]
+    df_display["is_abierto"] = [e[0] for e in estados_calculados]
+    df_display["estado_badge"] = [e[1] for e in estados_calculados]
+    df_display["detalle_horario"] = [e[2] for e in estados_calculados]
+
+    if solo_abiertos_ahora:
+        df_display = df_display[df_display["is_abierto"]]
 
     has_user_gps = (st.session_state.get("user_lat") is not None and st.session_state.get("user_lon") is not None)
 
@@ -1135,7 +1158,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
     # ── Sección Puntos Verdes Cercanos (Dinámica con datos reales CABA) ──
     st.markdown("### 📍 Puntos Verdes más cercanos a tu ubicación")
 
-    todos_puntos = PUNTOS_VERDES_LIST + CENTROS_VERDES_LIST
+    todos_puntos = get_puntos_habilitados(incluir_centros=True)
 
     def calc_dist(pt):
         dlat = np.radians(pt["lat"] - ref_lat)
@@ -1145,10 +1168,12 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
 
     puntos_con_dist = []
     for p in todos_puntos:
-        if "Cerrado" in str(p.get("estado", "")):
-            continue
+        is_abierto, badge_texto, det_h = calcular_estado_apertura(p)
         p_copy = dict(p)
         p_copy["dist_km"] = calc_dist(p)
+        p_copy["is_abierto"] = is_abierto
+        p_copy["badge_texto"] = badge_texto
+        p_copy["detalle_horario"] = det_h
         puntos_con_dist.append(p_copy)
 
     puntos_con_dist.sort(key=lambda x: x["dist_km"])
@@ -1174,7 +1199,11 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         else:
             maps_url = f"https://www.google.com/maps/dir/?api=1&destination={p['lat']},{p['lon']}"
 
-        cards_html += f"""<div class="nearby-center-item" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;"><div class="nearby-item-left"><div class="nearby-item-icon" style="color: {tag_color};"><span class="material-symbols-outlined">{icon_name}</span></div><div><div class="nearby-item-name">{p['nombre']}</div><div class="nearby-item-meta">{p.get('tipo', 'Punto Verde')} • {p.get('direccion', '')} • Comuna {p['comuna']} • <b>{p['dist_km']:.1f} km</b></div></div></div><div style="text-align:right;"><a href="{maps_url}" target="_blank" class="maps-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">directions</span> Cómo llegar en Google Maps</a></div></div>"""
+        status_pill_bg = "#ECFDF5" if p["is_abierto"] else "#FEF2F2"
+        status_pill_color = "#065F46" if p["is_abierto"] else "#991B1B"
+        status_pill_border = "#A7F3D0" if p["is_abierto"] else "#FECACA"
+
+        cards_html += f"""<div class="nearby-center-item" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;"><div class="nearby-item-left"><div class="nearby-item-icon" style="color: {tag_color};"><span class="material-symbols-outlined">{icon_name}</span></div><div style="flex:1;"><div style="display:flex; justify-content:space-between; align-items:center; gap:8px;"><div class="nearby-item-name">{p['nombre']}</div><span style="font-size:0.75rem; font-weight:700; color:{status_pill_color}; background:{status_pill_bg}; border:1px solid {status_pill_border}; border-radius:9999px; padding:2px 8px; white-space:nowrap;">{p['badge_texto']}</span></div><div class="nearby-item-meta">{p.get('tipo', 'Punto Verde')} • {p.get('direccion', '')} • Comuna {p['comuna']} • <b>{p['dist_km']:.1f} km</b></div><div style="font-size:0.78rem; color:#64748B; margin-top:3px;">🕒 {p['detalle_horario']}</div></div></div><div style="text-align:right;"><a href="{maps_url}" target="_blank" class="maps-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">directions</span> Cómo llegar en Google Maps</a></div></div>"""
 
     st.markdown(f'<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 1.25rem;">{cards_html}</div>', unsafe_allow_html=True)
 
@@ -1248,7 +1277,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
                         "🏷️ <b>Tipo:</b> {tipo}<br/>"
                         "🕒 <b>Horario:</b> {horario}<br/>"
                         "📌 <b>Comuna:</b> {comuna}<br/>"
-                        "🟢 <b>Estado:</b> {estado}</div>",
+                        "⏱️ <b>Estado ahora:</b> {estado_badge} ({detalle_horario})</div>",
                 "style": {
                     "backgroundColor": "#0F172A",
                     "color": "#FFFFFF",
@@ -1265,14 +1294,15 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
     for _, row in df_filtrado_mapa.iterrows():
         tipo = row.get("tipo", "Punto Verde")
         admin = f" · Admin: {row['administra']}" if "administra" in row and pd.notnull(row["administra"]) else ""
-        estado_badge = "🟢 " + str(row.get("estado", "Operativo")) if "Abierto" in str(row.get("estado", "")) or "Operativo" in str(row.get("estado", "")) else "🔴 " + str(row.get("estado", ""))
+        badge_texto = row.get("estado_badge", "🟢 Operativo")
+        det_h = row.get("detalle_horario", "")
 
-        with st.expander(f"{tipo}: {row['nombre']} — Comuna {row['comuna']}{admin} ({estado_badge})"):
+        with st.expander(f"{tipo}: {row['nombre']} — Comuna {row['comuna']}{admin} ({badge_texto})"):
             st.markdown(f"""
 - **Dirección:** `{row['direccion']}`
 - **Barrio / Comuna:** `{row.get('barrio', '')}` (Comuna {row['comuna']})
-- **Horario:** `{row.get('horario', 'Consultar')}`
-- **Estado:** `{row.get('estado', 'Operativo')}`
+- **Horario oficial:** `{row.get('horario', 'Consultar')}`
+- **Estado en tiempo real:** **{badge_texto}** — *{det_h}*
 - **Navegación:** [🧭 Abrir ruta en Google Maps](https://www.google.com/maps/dir/?api=1&destination={row['lat']},{row['lon']})
 """)
 
