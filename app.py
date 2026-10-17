@@ -58,9 +58,14 @@ from puntos_verdes_data import (
     PUNTOS_VERDES_LIST,
     CENTROS_VERDES_LIST,
     CATEGORIAS_OFICIALES_GCBA,
+    FILTROS_MATERIAL_UI,
     calcular_estado_apertura,
     get_puntos_habilitados,
     get_puntos_por_comuna,
+    filtrar_puntos_por_material,
+    punto_recibe_material,
+    geocodificar_direccion_caba,
+    generar_links_navegacion,
 )
 
 # Componente HTML5 de Geolocalizacion GPS
@@ -119,6 +124,9 @@ if "confirmed_override" not in st.session_state:
 if "user_lat" not in st.session_state:
     st.session_state.user_lat = None
     st.session_state.user_lon = None
+
+if "user_addr_norm" not in st.session_state:
+    st.session_state.user_addr_norm = None
 
 fb_store = st.session_state.feedback_store
 total_feedbacks = get_total_corrections(fb_store)
@@ -353,7 +361,8 @@ html, body, [class*="css"], .stApp {
     border: 1px solid var(--color-border-dark);
     border-radius: 12px;
     padding: 10px 14px;
-    margin-bottom: 8px;
+    margin: 0 auto 8px auto;
+    max-width: 720px;
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 .scanner-header-bar {
@@ -392,12 +401,24 @@ html, body, [class*="css"], .stApp {
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
-/* Estilo iframe webrtc */
+/* Estilo iframe webrtc e imagenes autoajustables a pantalla */
 [data-testid="stCustomComponentV1"] iframe {
     border-radius: 12px !important;
     background-color: #0F172A !important;
     border: 1px solid #1E293B !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.18) !important;
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    display: block !important;
+}
+[data-testid="stImage"] img {
+    max-height: 58vh !important;
+    width: auto !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    margin: 0 auto !important;
+    display: block !important;
+    border-radius: 12px !important;
 }
 
 /* ─── Panel Lateral (Dashboard Widgets) ─── */
@@ -583,6 +604,42 @@ html, body, [class*="css"], .stApp {
 .nearby-item-meta {
     font-size: 0.76rem;
     color: var(--color-text-secondary);
+}
+.maps-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #047857 !important;
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    border-radius: 8px;
+    padding: 4px 10px;
+    text-decoration: none !important;
+    transition: all 0.15s ease;
+}
+.maps-link-btn:hover {
+    background: #D1FAE5;
+    color: #064E3B !important;
+}
+.waze-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0369A1 !important;
+    background: #E0F2FE;
+    border: 1px solid #BAE6FD;
+    border-radius: 8px;
+    padding: 4px 10px;
+    text-decoration: none !important;
+    transition: all 0.15s ease;
+}
+.waze-link-btn:hover {
+    background: #BAE6FD;
+    color: #075985 !important;
 }
 
 /* ─── Botones Globales (UI Kit) ─── */
@@ -771,6 +828,21 @@ with tab_live:
                 "frameRate": {"ideal": 15, "max": 20},
             },
             "audio": False,
+        },
+        video_html_attrs={
+            "autoPlay": True,
+            "controls": True,
+            "muted": True,
+            "style": {
+                "width": "100%",
+                "maxWidth": "700px",
+                "maxHeight": "58vh",
+                "objectFit": "contain",
+                "margin": "0 auto",
+                "display": "block",
+                "borderRadius": "10px",
+                "backgroundColor": "#0F172A",
+            },
         },
         desired_playing_state=None,
         async_processing=True,
@@ -977,21 +1049,86 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                 # ── Opcionalidad de Puntos Verdes según el tipo de residuo ──
                 st.divider()
                 if has_special:
-                    st.error("🔴 **RESIDUO ESPECIAL DETECTADO:** Este material **NO debe tirarse en el contenedor verde ni negro**. Requiere Punto Verde o Punto Verde Móvil.")
-                    st.info("👉 Consultá la pestaña **'📍 Red de Puntos Verdes'** para ver el mapa y horarios del punto habilitado más cercano a tu Comuna.")
+                    st.error("🔴 **RESIDUO ESPECIAL DETECTADO:** Este material **NO debe tirarse en el contenedor verde ni negro**. Requiere un Punto Verde que reciba específicamente esta corriente.")
                 elif has_donation:
-                    st.info("🟣 **Textil / Calzado:** Si está en buen estado, donalo a ONGs, iglesias o ferias barriales. Si son restos textiles limpios, podés acercarlos a un **Punto Verde**; si están sucios o rotos, van en **Bolsa Negra**.")
+                    st.info("🟣 **Textil / Calzado:** Si está en buen estado, donalo a ONGs, iglesias o ferias barriales. Si son restos textiles limpios, podés acercarlos a un **Punto Verde o Centro Verde**; si están sucios o rotos, van en **Bolsa Negra**.")
                 elif has_black_bag:
                     st.warning("⚫ **Disposición en Contenedor Negro / Compostera:** Este residuo corresponde a **Basura Común o Restos Orgánicos**. **NO arrojar en el Contenedor Verde** para no contaminar los materiales reciclables.")
                 else:
-                    st.success("🟢 **Disposición en Origen:** Podés depositar estos materiales directamente en el **Contenedor Verde** de tu cuadra (limpios y secos).")
-                    with st.expander("📍 ¿Querés llevarlos a un Punto Verde o Centro de Cooperativa? (Opcional)"):
-                        st.markdown("""
-Si no tenés contenedor verde cerca o preferís entregarlos en mano:
-- **Puntos Verdes:** Miércoles a Domingos de 11 a 14:30 h y de 15 a 19 h.
-- **Centros Verdes:** Plantas de cooperativas de recuperadores urbanos.
-- Consulta el mapa completo en la pestaña **'📍 Red de Puntos Verdes'**.
-""")
+                    st.success("🟢 **Disposición en Origen:** Podés depositar estos materiales directamente en el **Contenedor Verde** de tu cuadra (limpios y secos), o llevarlos a un Punto/Centro Verde.")
+
+                # ── Buscador directo de Punto de Recepción por Dirección y Compatibilidad de Material ──
+                clase_det_principal = str(display_detections[0].get("clase", "plastic")).lower()
+                label_det_principal = display_detections[0].get("label", "Residuo")
+                if clase_det_principal != "trash":
+                    with st.expander(f"🧭 Encontrar centro de recepción habilitado para **{label_det_principal}** cerca de tu dirección", expanded=has_special):
+                        st.caption("No todos los puntos reciben lo mismo (por ejemplo, los Centros de Cooperativas reciben reciclables secos pero **no** reciben pilas, aceite ni electrónicos). Ingresá tu dirección para filtrar solo los centros compatibles y abrir la ruta en **Google Maps** o **Waze**.")
+                        dir_rapida = st.text_input(
+                            "🏠 Ingresá tu calle y altura o intersección en CABA:",
+                            value=st.session_state.get("user_addr_input", ""),
+                            placeholder="Ej: Av. Rivadavia 5100, Santa Fe y Callao, Caballito...",
+                            key="input_dir_tab_photo"
+                        )
+                        if dir_rapida != st.session_state.get("user_addr_input", ""):
+                            st.session_state.user_addr_input = dir_rapida
+
+                        lat_origen, lon_origen, nom_origen = -34.6037, -58.3816, "Centro CABA (Referencia)"
+                        tiene_origen_exacto = False
+                        if dir_rapida.strip():
+                            geo_res = geocodificar_direccion_caba(dir_rapida)
+                            if geo_res:
+                                lat_origen, lon_origen, nom_origen = geo_res
+                                st.session_state.user_lat = lat_origen
+                                st.session_state.user_lon = lon_origen
+                                st.session_state.user_addr_norm = nom_origen
+                                tiene_origen_exacto = True
+                                st.success(f"📍 Dirección localizada: **{nom_origen}** (`{lat_origen:.4f}, {lon_origen:.4f}`)")
+                            else:
+                                st.warning("No se pudo geocodificar exactamente esa calle en CABA. Se usará como texto de origen directo en Google Maps.")
+                        elif st.session_state.get("user_lat") and st.session_state.get("user_lon"):
+                            lat_origen = st.session_state.user_lat
+                            lon_origen = st.session_state.user_lon
+                            nom_origen = st.session_state.get("user_addr_norm") or "Ubicación actual"
+                            tiene_origen_exacto = True
+
+                        candidatos_compatibles = get_puntos_habilitados(
+                            incluir_centros=True,
+                            solo_abiertos_ahora=False,
+                            clase_material=clase_det_principal,
+                        )
+                        for pt_c in candidatos_compatibles:
+                            dlat = np.radians(pt_c["lat"] - lat_origen)
+                            dlon = np.radians(pt_c["lon"] - lon_origen)
+                            a_h = np.sin(dlat / 2)**2 + np.cos(np.radians(lat_origen)) * np.cos(np.radians(pt_c["lat"])) * np.sin(dlon / 2)**2
+                            pt_c["dist_km"] = 6371.0 * 2 * np.arctan2(np.sqrt(a_h), np.sqrt(1 - a_h))
+                        candidatos_compatibles.sort(key=lambda x: x["dist_km"])
+
+                        for pt_top in candidatos_compatibles[:2]:
+                            abierto_ok, badge_est, det_hor = calcular_estado_apertura(pt_top)
+                            gmaps_u, waze_u = generar_links_navegacion(
+                                pt_top["lat"],
+                                pt_top["lon"],
+                                orig_lat=lat_origen if tiene_origen_exacto else None,
+                                orig_lon=lon_origen if tiene_origen_exacto else None,
+                                orig_direccion=dir_rapida if not tiene_origen_exacto else None,
+                            )
+                            st.markdown(f"""
+<div class="nearby-center-item" style="flex-direction:column; align-items:stretch; gap:8px;">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <b style="font-size:0.92rem; color:#0F172A;">📍 {pt_top['nombre']} ({pt_top.get('tipo', 'Punto Verde')})</b>
+    <span style="font-size:0.74rem; font-weight:700; color:{'#065F46' if abierto_ok else '#991B1B'}; background:{'#ECFDF5' if abierto_ok else '#FEF2F2'}; border:1px solid {'#A7F3D0' if abierto_ok else '#FECACA'}; border-radius:9999px; padding:2px 8px;">{badge_est}</span>
+  </div>
+  <div style="font-size:0.8rem; color:#475569;">
+    <b>Dirección:</b> {pt_top.get('direccion', '')} (Comuna {pt_top['comuna']}) • <b>Distancia:</b> {pt_top['dist_km']:.2f} km<br>
+    <b>Recibe:</b> {pt_top.get('materiales_desc', '')}<br>
+    <b>Horario:</b> {pt_top.get('horario', '')} <i>({det_hor})</i>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:2px;">
+    <a href="{gmaps_u}" target="_blank" class="maps-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">directions</span> Ruta en Google Maps</a>
+    <a href="{waze_u}" target="_blank" class="waze-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">navigation</span> Ir con Waze</a>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
                 # ── Auto-entrenamiento / Corrección ──
                 if not active_override:
@@ -1056,7 +1193,7 @@ Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda
 with tab_pv:
     st.subheader("📍 Red de Puntos Verdes y Centros Verdes de CABA")
     st.markdown("""
-Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Verdes** gestionadas por Cooperativas de Recuperadores Urbanos en la Ciudad de Buenos Aires.
+Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Verdes** gestionadas por Cooperativas de Recuperadores Urbanos en la Ciudad de Buenos Aires, filtrando según tu **dirección** y el **tipo de residuo** que necesitás entregar.
 """)
 
     if user_geo_component is not None:
@@ -1095,11 +1232,63 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         13: (-34.5530, -58.4620), 14: (-34.5820, -58.4240), 15: (-34.5840, -58.4580),
     }
 
+    # ── Fila 1 de Buscador Geoespacial: Dirección en CABA + Filtro de Material Compatible ──
+    ultimo_res = st.session_state.get("ultimo_residuo")
+    default_mat_key = "todos"
+    if ultimo_res and isinstance(ultimo_res, dict):
+        cls_u = str(ultimo_res.get("clase", "")).lower()
+        if cls_u in ("battery", "pilas"):
+            default_mat_key = "battery"
+        elif cls_u in ("e-waste", "raee", "electronic", "cell phone", "laptop"):
+            default_mat_key = "raee"
+        elif cls_u in ("clothes", "shoes"):
+            default_mat_key = "clothes"
+        elif cls_u in ("biological",):
+            default_mat_key = "biological"
+        elif cls_u in ("plastic", "cardboard", "paper", "glass", "metal"):
+            default_mat_key = "secos"
+
+    opciones_mat_keys = list(FILTROS_MATERIAL_UI.keys())
+    idx_mat_default = opciones_mat_keys.index(default_mat_key) if default_mat_key in opciones_mat_keys else 0
+
+    col_dir, col_mat = st.columns([1.25, 1.0])
+    with col_dir:
+        direccion_usuario = st.text_input(
+            "🏠 Tu dirección o intersección en CABA (calcula ruta en Google Maps / Waze):",
+            value=st.session_state.get("user_addr_input", ""),
+            placeholder="Ej: Av. Rivadavia 5100, Santa Fe y Callao, Av. Cabildo 2000...",
+            help="Usa el geocodificador oficial USIG del GCBA para localizar tu cuadra sin requerir app móvil nativa.",
+            key="input_dir_tab_pv"
+        )
+        if direccion_usuario != st.session_state.get("user_addr_input", ""):
+            st.session_state.user_addr_input = direccion_usuario
+
+    with col_mat:
+        filtro_material = st.selectbox(
+            "♻️ Filtrar según el material que necesitás reciclar:",
+            opciones_mat_keys,
+            index=idx_mat_default,
+            format_func=lambda k: FILTROS_MATERIAL_UI.get(k, k),
+            help="Filtra solo los centros que reciben ese material (ej: las Cooperativas reciben secos pero NO reciben pilas, aceite ni RAEE).",
+            key="filtro_material_pv"
+        )
+
+    # Geocodificar dirección ingresada si existe
+    addr_geocoded = None
+    if direccion_usuario.strip():
+        addr_geocoded = geocodificar_direccion_caba(direccion_usuario)
+        if addr_geocoded:
+            st.session_state.user_lat = addr_geocoded[0]
+            st.session_state.user_lon = addr_geocoded[1]
+            st.session_state.user_addr_norm = addr_geocoded[2]
+        else:
+            st.warning("⚠️ No encontramos esa altura exacta en el padrón USIG CABA, pero igualmente se vinculará tu dirección en el enlace de ruta de Google Maps.")
+
     col_f1, col_f2, col_f3 = st.columns([1.2, 1, 0.9])
     with col_f1:
         comunas_disponibles = ["Todas"] + list(range(1, 16))
         filtro_comuna = st.selectbox(
-            "Tu Comuna / Barrio de referencia:",
+            "Filtrar por Comuna / Barrio:",
             comunas_disponibles,
             format_func=lambda c: "CABA (Todas las Comunas)" if c == "Todas" else COMUNAS_BARRIOS.get(c, str(c)),
             key="filtro_comuna_pv"
@@ -1107,7 +1296,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
     with col_f2:
         tipo_capa = st.radio(
             "Capa en mapa:",
-            ["📍 Puntos Verdes (32)", "🏭 Centros Verdes (14)", "🌐 Todos (46)"],
+            ["🌐 Todos (46)", "📍 Puntos Verdes (32)", "🏭 Centros Verdes (14)"],
             horizontal=True
         )
     with col_f3:
@@ -1129,6 +1318,16 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
     else:
         df_display = pd.concat([df_pv, df_cv], ignore_index=True)
 
+    # Filtrar por compatibilidad del material seleccionado
+    if filtro_material != "todos":
+        mask_mat = [punto_recibe_material(dict(r), filtro_material) for _, r in df_display.iterrows()]
+        df_display = df_display[mask_mat].copy()
+        if df_display.empty:
+            st.info("ℹ️ Los Centros Verdes de Cooperativas reciben exclusivamente materiales secos. Mostrando los Puntos Verdes habilitados para este material especial:")
+            df_fallback = pd.concat([df_pv, df_cv], ignore_index=True)
+            mask_fb = [punto_recibe_material(dict(r), filtro_material) for _, r in df_fallback.iterrows()]
+            df_display = df_fallback[mask_fb].copy()
+
     # Calcular estado horario en tiempo real para cada fila
     estados_calculados = [calcular_estado_apertura(dict(r)) for _, r in df_display.iterrows()]
     df_display["is_abierto"] = [e[0] for e in estados_calculados]
@@ -1140,11 +1339,18 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
 
     has_user_gps = (st.session_state.get("user_lat") is not None and st.session_state.get("user_lon") is not None)
 
-    # Coordenada de referencia para cálculo según Comuna o GPS
-    if has_user_gps and filtro_comuna == "Todas":
+    # Coordenada de referencia para cálculo según Dirección ingresada, GPS o Comuna
+    if addr_geocoded is not None:
+        ref_lat, ref_lon, ref_label = addr_geocoded
+        st.success(f"📍 **Origen establecido en:** `{ref_label}` ({ref_lat:.4f}, {ref_lon:.4f}) — Mostrando los centros compatibles más cercanos a tu dirección.")
+        df_filtrado_mapa = df_display[df_display["comuna"] == int(filtro_comuna)] if filtro_comuna != "Todas" else df_display.copy()
+        if df_filtrado_mapa.empty:
+            df_filtrado_mapa = df_display.copy()
+    elif has_user_gps and filtro_comuna == "Todas":
         ref_lat = st.session_state.user_lat
         ref_lon = st.session_state.user_lon
-        st.success(f"📍 **Ubicación GPS activa:** Coordenadas ({ref_lat:.4f}, {ref_lon:.4f}). Los puntos verdes se calculan desde tu posición real.")
+        ref_label = st.session_state.get("user_addr_norm") or f"Ubicación GPS ({ref_lat:.4f}, {ref_lon:.4f})"
+        st.success(f"📍 **Ubicación activa:** `{ref_label}`. Los puntos verdes se calculan desde tu posición.")
         df_filtrado_mapa = df_display.copy()
     elif filtro_comuna != "Todas" and int(filtro_comuna) in COMUNA_CENTROIDES:
         ref_lat, ref_lon = COMUNA_CENTROIDES[int(filtro_comuna)]
@@ -1155,10 +1361,17 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         ref_lat, ref_lon = -34.6037, -58.3816
         df_filtrado_mapa = df_display.copy()
 
-    # ── Sección Puntos Verdes Cercanos (Dinámica con datos reales CABA) ──
-    st.markdown("### 📍 Puntos Verdes más cercanos a tu ubicación")
+    # ── Sección Puntos Verdes Cercanos Compatibles ──
+    titulo_mat = FILTROS_MATERIAL_UI.get(filtro_material, "Todos los materiales")
+    st.markdown(f"### 📍 Centros compatibles más cercanos ({titulo_mat})")
 
-    todos_puntos = get_puntos_habilitados(incluir_centros=True)
+    todos_puntos = get_puntos_habilitados(
+        incluir_centros=True,
+        solo_abiertos_ahora=solo_abiertos_ahora,
+        clase_material=filtro_material,
+    )
+    if not todos_puntos:
+        todos_puntos = get_puntos_habilitados(incluir_centros=True, solo_abiertos_ahora=False, clase_material=filtro_material)
 
     def calc_dist(pt):
         dlat = np.radians(pt["lat"] - ref_lat)
@@ -1194,16 +1407,19 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             icon_name = "recycling"
             tag_color = "#059669"
 
-        if has_user_gps:
-            maps_url = f"https://www.google.com/maps/dir/?api=1&origin={ref_lat},{ref_lon}&destination={p['lat']},{p['lon']}"
-        else:
-            maps_url = f"https://www.google.com/maps/dir/?api=1&destination={p['lat']},{p['lon']}"
+        maps_url, waze_url = generar_links_navegacion(
+            p["lat"],
+            p["lon"],
+            orig_lat=ref_lat if (has_user_gps or addr_geocoded is not None) else None,
+            orig_lon=ref_lon if (has_user_gps or addr_geocoded is not None) else None,
+            orig_direccion=direccion_usuario if (direccion_usuario.strip() and addr_geocoded is None) else None,
+        )
 
         status_pill_bg = "#ECFDF5" if p["is_abierto"] else "#FEF2F2"
         status_pill_color = "#065F46" if p["is_abierto"] else "#991B1B"
         status_pill_border = "#A7F3D0" if p["is_abierto"] else "#FECACA"
 
-        cards_html += f"""<div class="nearby-center-item" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;"><div class="nearby-item-left"><div class="nearby-item-icon" style="color: {tag_color};"><span class="material-symbols-outlined">{icon_name}</span></div><div style="flex:1;"><div style="display:flex; justify-content:space-between; align-items:center; gap:8px;"><div class="nearby-item-name">{p['nombre']}</div><span style="font-size:0.75rem; font-weight:700; color:{status_pill_color}; background:{status_pill_bg}; border:1px solid {status_pill_border}; border-radius:9999px; padding:2px 8px; white-space:nowrap;">{p['badge_texto']}</span></div><div class="nearby-item-meta">{p.get('tipo', 'Punto Verde')} • {p.get('direccion', '')} • Comuna {p['comuna']} • <b>{p['dist_km']:.1f} km</b></div><div style="font-size:0.78rem; color:#64748B; margin-top:3px;">🕒 {p['detalle_horario']}</div></div></div><div style="text-align:right;"><a href="{maps_url}" target="_blank" class="maps-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">directions</span> Cómo llegar en Google Maps</a></div></div>"""
+        cards_html += f"""<div class="nearby-center-item" style="display:flex; flex-direction:column; justify-content:space-between; gap:10px;"><div class="nearby-item-left"><div class="nearby-item-icon" style="color: {tag_color};"><span class="material-symbols-outlined">{icon_name}</span></div><div style="flex:1;"><div style="display:flex; justify-content:space-between; align-items:center; gap:8px;"><div class="nearby-item-name">{p['nombre']}</div><span style="font-size:0.75rem; font-weight:700; color:{status_pill_color}; background:{status_pill_bg}; border:1px solid {status_pill_border}; border-radius:9999px; padding:2px 8px; white-space:nowrap;">{p['badge_texto']}</span></div><div class="nearby-item-meta">{p.get('tipo', 'Punto Verde')} • {p.get('direccion', '')} • Comuna {p['comuna']} • <b>{p['dist_km']:.2f} km</b></div><div style="font-size:0.76rem; color:#047857; margin-top:3px;">♻️ <b>Recibe:</b> {p.get('materiales_desc', '')}</div><div style="font-size:0.76rem; color:#64748B; margin-top:2px;">🕒 {p['detalle_horario']}</div></div></div><div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;"><a href="{maps_url}" target="_blank" class="maps-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">directions</span> Google Maps</a><a href="{waze_url}" target="_blank" class="waze-link-btn"><span class="material-symbols-outlined" style="font-size:15px;">navigation</span> Waze</a></div></div>"""
 
     st.markdown(f'<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 1.25rem;">{cards_html}</div>', unsafe_allow_html=True)
 
@@ -1236,16 +1452,19 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
 
     map_layers = [layer_points]
 
-    if has_user_gps:
+    if has_user_gps or addr_geocoded is not None:
+        pin_label = st.session_state.get("user_addr_norm") or "Ubicación detectada por tu navegador"
         df_user_pin = pd.DataFrame([{
             "lat": ref_lat,
             "lon": ref_lon,
-            "nombre": "📍 Tu Posición Actual (GPS)",
-            "direccion": "Ubicación detectada por tu navegador",
-            "tipo": "Mi Ubicación",
-            "horario": "En tiempo real",
-            "comuna": "Tu Comuna",
-            "estado": "GPS Activo",
+            "nombre": "📍 Tu Punto de Partida",
+            "direccion": pin_label,
+            "tipo": "Origen del Usuario",
+            "horario": "Activo",
+            "comuna": "CABA",
+            "estado_badge": "🔵 Tu Ubicación",
+            "detalle_horario": pin_label,
+            "materiales_desc": "Punto de origen para cálculo de distancia",
             "color": [37, 99, 235, 255]
         }])
         layer_user = pdk.Layer(
@@ -1260,9 +1479,9 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         map_layers.append(layer_user)
 
     view_state = pdk.ViewState(
-        latitude=ref_lat if (has_user_gps or filtro_comuna != "Todas") else (float(df_map_render["lat"].mean()) if not df_map_render.empty else -34.6037),
-        longitude=ref_lon if (has_user_gps or filtro_comuna != "Todas") else (float(df_map_render["lon"].mean()) if not df_map_render.empty else -58.3816),
-        zoom=13.0 if has_user_gps else (12.0 if filtro_comuna != "Todas" else 11.2),
+        latitude=ref_lat if (has_user_gps or addr_geocoded is not None or filtro_comuna != "Todas") else (float(df_map_render["lat"].mean()) if not df_map_render.empty else -34.6037),
+        longitude=ref_lon if (has_user_gps or addr_geocoded is not None or filtro_comuna != "Todas") else (float(df_map_render["lon"].mean()) if not df_map_render.empty else -58.3816),
+        zoom=13.2 if (has_user_gps or addr_geocoded is not None) else (12.0 if filtro_comuna != "Todas" else 11.2),
         pitch=0,
     )
 
@@ -1275,6 +1494,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
                         "<b style='font-size: 14px; color: #A7F3D0;'>{nombre}</b><br/>"
                         "📍 <b>Dirección:</b> {direccion}<br/>"
                         "🏷️ <b>Tipo:</b> {tipo}<br/>"
+                        "♻️ <b>Recibe:</b> {materiales_desc}<br/>"
                         "🕒 <b>Horario:</b> {horario}<br/>"
                         "📌 <b>Comuna:</b> {comuna}<br/>"
                         "⏱️ <b>Estado ahora:</b> {estado_badge} ({detalle_horario})</div>",
@@ -1290,20 +1510,28 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         )
     )
 
-    st.markdown(f"#### 📋 Detalle ({len(df_filtrado_mapa)} ubicaciones)")
+    st.markdown(f"#### 📋 Detalle ({len(df_filtrado_mapa)} ubicaciones compatibles)")
     for _, row in df_filtrado_mapa.iterrows():
         tipo = row.get("tipo", "Punto Verde")
-        admin = f" · Admin: {row['administra']}" if "administra" in row and pd.notnull(row["administra"]) else ""
+        admin = f" · Admin: {row['administra']}" if "administra" in row and pd.notnull(row["administra"]) and str(row["administra"]).strip() else ""
         badge_texto = row.get("estado_badge", "🟢 Operativo")
         det_h = row.get("detalle_horario", "")
+        gmaps_row, waze_row = generar_links_navegacion(
+            row["lat"],
+            row["lon"],
+            orig_lat=ref_lat if (has_user_gps or addr_geocoded is not None) else None,
+            orig_lon=ref_lon if (has_user_gps or addr_geocoded is not None) else None,
+            orig_direccion=direccion_usuario if (direccion_usuario.strip() and addr_geocoded is None) else None,
+        )
 
         with st.expander(f"{tipo}: {row['nombre']} — Comuna {row['comuna']}{admin} ({badge_texto})"):
             st.markdown(f"""
 - **Dirección:** `{row['direccion']}`
 - **Barrio / Comuna:** `{row.get('barrio', '')}` (Comuna {row['comuna']})
+- **Materiales que recibe:** {row.get('materiales_desc', 'Reciclables secos')}
 - **Horario oficial:** `{row.get('horario', 'Consultar')}`
 - **Estado en tiempo real:** **{badge_texto}** — *{det_h}*
-- **Navegación:** [🧭 Abrir ruta en Google Maps](https://www.google.com/maps/dir/?api=1&destination={row['lat']},{row['lon']})
+- **Navegación directa:** [🧭 Cómo llegar en Google Maps]({gmaps_row}) &nbsp;|&nbsp; [🚗 Ir con Waze]({waze_row})
 """)
 
     st.divider()
