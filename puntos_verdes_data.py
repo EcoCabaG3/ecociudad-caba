@@ -3,6 +3,8 @@ puntos_verdes_data.py - Catalogo oficial geolocalizado de Puntos Verdes, Centros
 Fuente oficial: https://data.buenosaires.gob.ar/dataset/infraestructura-gestion-residuos
 """
 
+from datetime import datetime
+
 CATEGORIAS_OFICIALES_GCBA = {
     "raee": {
         "titulo": "🔋 RAEE (Aparatos Eléctricos y Electrónicos)",
@@ -107,3 +109,102 @@ CENTROS_VERDES_LIST = [
     {"nombre": "Centro Verde Mataderos", "administra": "Coop. Nueva Generación", "direccion": "Av. de los Corrales 7200", "barrio": "Mataderos", "comuna": 9, "lat": -34.6610, "lon": -58.5085, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
     {"nombre": "Centro Verde Paternal", "administra": "Coop. Cartoneros del Centro", "direccion": "Warnes 1500", "barrio": "La Paternal", "comuna": 15, "lat": -34.5962, "lon": -58.4611, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
 ]
+
+
+def calcular_estado_apertura(punto: dict, now: datetime | None = None) -> tuple[bool, str, str]:
+    """
+    Evalua en tiempo real si el Punto Verde o Centro Verde esta actualmente ABIERTO o CERRADO
+    segun el estado operativo y el horario oficial vs la hora y dia del sistema.
+    
+    Retorna:
+        (esta_abierto: bool, badge_texto: str, detalle: str)
+        Ejemplos:
+        (True, "🟢 Abierto ahora", "Abierto horario corrido hasta las 19:00 h")
+        (False, "🔴 Cerrado ahora", "Cerró a las 19:00 h")
+        (False, "🔴 Cerrado ahora", "Cerrado hoy. Abre el miércoles a las 11:00 h")
+        (False, "🔴 Cerrado por mantenimiento", "Cerrado temporalmente")
+    """
+    if now is None:
+        now = datetime.now()
+
+    estado_base = str(punto.get("estado", "")).strip()
+    if "Cerrado" in estado_base:
+        return False, "🔴 " + estado_base, estado_base
+
+    horario_str = str(punto.get("horario", "")).strip()
+    if "Cerrado" in horario_str:
+        return False, "🔴 Cerrado temporalmente", "Cerrado temporalmente"
+
+    weekday = now.weekday()  # 0=Lunes, 1=Martes, 2=Miercoles, ..., 6=Domingo
+    current_time_float = now.hour + now.minute / 60.0
+
+    # 1. Puntos Verdes habituales ("Mié a Dom 11 a 14:30 y 15 a 19 h")
+    if "14:30" in horario_str:
+        if weekday not in [2, 3, 4, 5, 6]:
+            dias_faltantes = (2 - weekday) % 7
+            dia_nombre = "el miércoles" if dias_faltantes > 1 else "mañana"
+            return False, "🔴 Cerrado ahora", f"Cerrado hoy. Abre {dia_nombre} a las 11:00 h"
+        if current_time_float < 11.0:
+            return False, "🔴 Cerrado ahora", "Abre hoy a las 11:00 h"
+        elif 11.0 <= current_time_float < 14.5:
+            return True, "🟢 Abierto ahora", "Abierto (Turno mañana hasta 14:30 h)"
+        elif 14.5 <= current_time_float < 15.0:
+            return False, "🔴 Cerrado por receso", "En receso de mediodía. Abre a las 15:00 h"
+        elif 15.0 <= current_time_float < 19.0:
+            return True, "🟢 Abierto ahora", "Abierto hasta las 19:00 h"
+        else:
+            return False, "🔴 Cerrado ahora", "Cerró a las 19:00 h"
+
+    # 2. Puntos Verdes Especiales horario corrido ("Mié a Dom 11 a 19 h (Corrido)")
+    elif "Corrido" in horario_str or ("Mié a Dom" in horario_str and "19" in horario_str):
+        if weekday not in [2, 3, 4, 5, 6]:
+            dias_faltantes = (2 - weekday) % 7
+            dia_nombre = "el miércoles" if dias_faltantes > 1 else "mañana"
+            return False, "🔴 Cerrado ahora", f"Cerrado hoy. Abre {dia_nombre} a las 11:00 h"
+        if current_time_float < 11.0:
+            return False, "🔴 Cerrado ahora", "Abre hoy a las 11:00 h"
+        elif 11.0 <= current_time_float < 19.0:
+            return True, "🟢 Abierto ahora", "Abierto horario corrido hasta las 19:00 h"
+        else:
+            return False, "🔴 Cerrado ahora", "Cerró a las 19:00 h"
+
+    # 3. Centros Verdes de cooperativas ("Lunes a Viernes")
+    elif "Lunes a Viernes" in horario_str:
+        if weekday not in [0, 1, 2, 3, 4]:
+            return False, "🔴 Cerrado fin de semana", "Abre el lunes a las 08:00 h"
+        if current_time_float < 8.0:
+            return False, "🔴 Cerrado ahora", "Abre hoy a las 08:00 h"
+        elif 8.0 <= current_time_float < 17.0:
+            return True, "🟢 Abierto ahora", "Abierto hasta las 17:00 h"
+        else:
+            return False, "🔴 Cerrado ahora", "Cerró a las 17:00 h"
+
+    # Fallback general
+    if "Abierto" in estado_base or "Operativo" in estado_base:
+        return True, "🟢 Operativo", "Consultar horario"
+    return False, "🔴 Cerrado", estado_base
+
+
+def get_puntos_habilitados(incluir_centros: bool = True, solo_abiertos_ahora: bool = False) -> list[dict]:
+    """
+    Retorna la lista de Puntos Verdes (y opcionalmente Centros Verdes) operativos.
+    Si solo_abiertos_ahora=True, filtra estrictamente los que se encuentran abiertos en este instante.
+    """
+    puntos = [p for p in PUNTOS_VERDES_LIST if "Cerrado" not in str(p.get("estado", ""))]
+    if incluir_centros:
+        puntos += [c for c in CENTROS_VERDES_LIST if "Cerrado" not in str(c.get("estado", ""))]
+    if solo_abiertos_ahora:
+        puntos = [p for p in puntos if calcular_estado_apertura(p)[0]]
+    return puntos
+
+
+def get_puntos_por_comuna(comuna: int | str, solo_abiertos: bool = True) -> list[dict]:
+    """
+    Filtra los puntos y centros verdes pertenecientes a una comuna especifica de CABA (1 al 15).
+    """
+    base = get_puntos_habilitados(incluir_centros=True) if solo_abiertos else (PUNTOS_VERDES_LIST + CENTROS_VERDES_LIST)
+    try:
+        comuna_num = int(comuna)
+        return [p for p in base if p.get("comuna") == comuna_num]
+    except (ValueError, TypeError):
+        return base
