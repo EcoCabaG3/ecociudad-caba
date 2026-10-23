@@ -39,7 +39,8 @@ WASTE_MAP = {
     "plastic bottle":       {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
     "pet bottle":           {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
     "bottle":               {"label": "Botella / Plastico",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y aplastar.", "es_especial": False},
-    "cup":                  {"label": "Vaso Descartable",     "emoji": "🥤", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos liquidos.", "es_especial": False},
+    "thermos":              {"label": "Termo / Botella",      "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco al Contenedor Verde.", "es_especial": False},
+    "cup":                  {"label": "Vaso (Vidrio / Plastico)", "emoji": "🥤", "tipo": "Reciclable Seco (Verde)", "color": (52, 152, 219),  "accion": "Asegurar que este limpio y seco. Apto Contenedor Verde.", "es_especial": False},
     "disposable cup":       {"label": "Vaso Descartable",     "emoji": "🥤", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos liquidos.", "es_especial": False},
     "plastic cup":          {"label": "Vaso Descartable",     "emoji": "🥤", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos liquidos.", "es_especial": False},
     "bowl":                 {"label": "Envase Descartable",   "emoji": "🥣", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Asegurar que este limpio y sin restos organicos.", "es_especial": False},
@@ -49,6 +50,13 @@ WASTE_MAP = {
     "plastic container":    {"label": "Envase / Contenedor",  "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Vaciar, enjuagar y compactar.", "es_especial": False},
     "container":            {"label": "Envase / Contenedor",  "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Al Contenedor Verde.", "es_especial": False},
     "capsule":              {"label": "Capsula de Cafe",      "emoji": "☕", "tipo": "Reciclable / Punto Verde",  "color": (46, 204, 113),  "accion": "Vacia y limpia. En Punto Verde se convierte en madera plastica.", "es_especial": False},
+
+    # Utiles de Escritura y Plasticos Rigidos (Contenedor Verde)
+    "pen":                  {"label": "Lapicera / Plastico",   "emoji": "🖊️", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico rigido. Retirar mina de tinta si es posible.", "es_especial": False},
+    "plastic pen":          {"label": "Lapicera / Plastico",   "emoji": "🖊️", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico rigido. Retirar mina de tinta si es posible.", "es_especial": False},
+    "ballpoint pen":        {"label": "Lapicera / Plastico",   "emoji": "🖊️", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico rigido. Retirar mina de tinta si es posible.", "es_especial": False},
+    "marker":               {"label": "Marcador / Plastico",   "emoji": "🖊️", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico rigido reciclable.", "es_especial": False},
+    "pencil":               {"label": "Lapiz / Madera",        "emoji": "✏️", "tipo": "Basura Comun / Seco",     "color": (127, 140, 141), "accion": "Restos de madera y grafito.", "es_especial": False},
     
     # CDs, DVDs y Discos Plasticos (Policarbonato)
     "cd":                   {"label": "CD / DVD / Disco",     "emoji": "💿", "tipo": "Reciclable (Plastico / Punto Verde)", "color": (46, 204, 113), "accion": "Material policarbonato. Apto Contenedor Verde o Punto Verde.", "es_especial": False},
@@ -59,6 +67,8 @@ WASTE_MAP = {
     "glass":                {"label": "Vidrio",               "emoji": "🍾", "tipo": "Reciclable Seco (Verde)",  "color": (52, 152, 219),  "accion": "Enjuagar. Envolver si esta roto para proteger al recolector.", "es_especial": False},
     "glass bottle":         {"label": "Vidrio",               "emoji": "🍾", "tipo": "Reciclable Seco (Verde)",  "color": (52, 152, 219),  "accion": "Enjuagar. Envolver si esta roto para proteger al recolector.", "es_especial": False},
     "wine glass":           {"label": "Vidrio / Botella",     "emoji": "🍾", "tipo": "Reciclable Seco (Verde)",  "color": (52, 152, 219),  "accion": "Enjuagar. Si esta roto, envolver antes de desechar.", "es_especial": False},
+    "drinking glass":       {"label": "Vaso de Vidrio",       "emoji": "🥃", "tipo": "Reciclable Seco (Verde)",  "color": (52, 152, 219),  "accion": "Vidrio reciclable. Enjuagar y depositar en Contenedor Verde.", "es_especial": False},
+    "glass cup":            {"label": "Vaso de Vidrio",       "emoji": "🥃", "tipo": "Reciclable Seco (Verde)",  "color": (52, 152, 219),  "accion": "Vidrio reciclable. Enjuagar y depositar en Contenedor Verde.", "es_especial": False},
     
     # Metales (Contenedor Verde)
     "metal":                {"label": "Metal / Aluminio",     "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar latas para ahorrar espacio.", "es_especial": False},
@@ -83,7 +93,12 @@ WASTE_MAP = {
     "alkaline battery":     {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
     "small battery":        {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
     "pila":                 {"label": "Pila / Bateria",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a buzones de pilas en Puntos Verdes o Farmacias habilitadas.", "es_especial": True},
-    "cell phone":           {"label": "Celular / RAEE",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Contiene metales pesados y componentes recuperables.", "es_especial": True},
+    "cell phone":           {"label": "Celular / RAEE",       "emoji": "📱", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Contiene metales pesados y componentes recuperables.", "es_especial": True},
+    "smartphone":           {"label": "Celular / RAEE",       "emoji": "📱", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Contiene metales pesados y componentes recuperables.", "es_especial": True},
+    "mobile phone":         {"label": "Celular / RAEE",       "emoji": "📱", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Contiene metales pesados y componentes recuperables.", "es_especial": True},
+    "telephone":            {"label": "Celular / RAEE",       "emoji": "📱", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Contiene metales pesados y componentes recuperables.", "es_especial": True},
+    "screen":               {"label": "Monitor / RAEE",       "emoji": "🖥️", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Especial o Centro Verde habilitado.", "es_especial": True},
+    "monitor":              {"label": "Monitor / RAEE",       "emoji": "🖥️", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Especial o Centro Verde habilitado.", "es_especial": True},
     "laptop":               {"label": "Laptop / RAEE",        "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde. Tratamiento diferenciado de circuitos y bateria.", "es_especial": True},
     "mouse":                {"label": "Periferico / RAEE",    "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde junto a cables y teclados.", "es_especial": True},
     "keyboard":             {"label": "Teclado / RAEE",       "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (231, 76, 60), "accion": "Llevar a Punto Verde Movil o Fijo.", "es_especial": True},
@@ -119,38 +134,50 @@ WASTE_MAP = {
 
 # Mapa de subcadenas keyword → clave base en WASTE_MAP (fallback por substring)
 _KEYWORD_FALLBACK = [
-    ("vape",       "vape"),
-    ("pot",        "jar"),
-    ("jar",        "jar"),
-    ("container",  "container"),
-    ("cup",        "cup"),
-    ("bottle",     "bottle"),
-    ("lotion",     "lotion bottle"),
-    ("cream",      "cream bottle"),
-    ("shampoo",    "shampoo bottle"),
-    ("can",        "can"),
-    ("tin",        "tin can"),
-    ("steel",      "steel can"),
-    ("metal",      "metal"),
-    ("glass",      "glass"),
-    ("plastic",    "plastic"),
-    ("cardboard",  "cardboard"),
-    ("carton",     "cardboard"),
-    ("corrugated", "cardboard"),
-    ("paper",      "paper"),
-    ("electronic", "electronic"),
-    ("circuit",    "circuit"),
-    ("battery",    "battery"),
-    ("batteries",  "battery"),
-    ("pila",       "battery"),
-    ("biological", "biological"),
-    ("organic",    "organic"),
-    ("clothes",    "clothes"),
-    ("shoes",      "shoes"),
-    ("shoe",       "shoes"),
-    ("trash",      "trash"),
-    ("oil",        "oil"),
-    ("aceite",     "oil"),
+    ("vape",           "vape"),
+    ("drinking glass", "drinking glass"),
+    ("glass cup",      "glass cup"),
+    ("glass",          "glass"),
+    ("pen",            "pen"),
+    ("marker",         "marker"),
+    ("pencil",         "pencil"),
+    ("thermos",        "thermos"),
+    ("pot",            "jar"),
+    ("jar",            "jar"),
+    ("container",      "container"),
+    ("cup",            "cup"),
+    ("bottle",         "bottle"),
+    ("lotion",         "lotion bottle"),
+    ("cream",          "cream bottle"),
+    ("shampoo",        "shampoo bottle"),
+    ("can",            "can"),
+    ("tin",            "tin can"),
+    ("steel",          "steel can"),
+    ("metal",          "metal"),
+    ("plastic",        "plastic"),
+    ("cardboard",      "cardboard"),
+    ("carton",         "cardboard"),
+    ("corrugated",     "cardboard"),
+    ("paper",          "paper"),
+    ("cell phone",     "cell phone"),
+    ("smartphone",     "cell phone"),
+    ("mobile phone",   "cell phone"),
+    ("telephone",      "cell phone"),
+    ("screen",         "screen"),
+    ("monitor",        "screen"),
+    ("electronic",     "electronic"),
+    ("circuit",        "circuit"),
+    ("battery",        "battery"),
+    ("batteries",      "battery"),
+    ("pila",           "battery"),
+    ("biological",     "biological"),
+    ("organic",        "organic"),
+    ("clothes",        "clothes"),
+    ("shoes",          "shoes"),
+    ("shoe",           "shoes"),
+    ("trash",          "trash"),
+    ("oil",            "oil"),
+    ("aceite",         "oil"),
 ]
 
 
@@ -158,9 +185,9 @@ _KEYWORD_FALLBACK = [
 IGNORED_CLASSES = {
     "person", "hand", "face", "head", "body", "arm", "finger",
     "chair", "couch", "bed", "dining table", "tv", "laptop-screen",
-    "refrigerator", "microwave", "oven", "sink", "door", "window", "cabinet",
+    "refrigerator", "microwave", "oven", "sink", "door", "window", "cabinet", "wardrobe", "cupboard", "closet",
     "toilet", "clock", "vase", "potted plant",
-    "wall", "floor", "ceiling", "shelf"
+    "wall", "floor", "ceiling", "shelf", "room", "indoor"
 }
 
 DEFAULT_WASTE = {
@@ -176,26 +203,67 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 MODEL_PATHS = {
-    "best": str(BASE_DIR / "models" / "best.pt"),
-    "waste_specialized": str(BASE_DIR / "models" / "best.pt") if (BASE_DIR / "models" / "best.pt").exists() else str(BASE_DIR / "models" / "waste_yolov8.pt"),
-    "yolov8n": str(BASE_DIR / "yolov8n.pt"),
     "yolov8s_world": str(BASE_DIR / "yolov8s-worldv2.pt"),
+    "waste_specialized": str(BASE_DIR / "models" / "waste_yolov8.pt"),
+    "best": str(BASE_DIR / "models" / "best.pt"),
+    "yolov8n": str(BASE_DIR / "yolov8n.pt"),
 }
 
 
+@st.cache_resource(show_spinner=False)
+def load_clip_verifier():
+    """
+    Carga el verificador semantico CLIP (ViT-B-32) si esta disponible en el entorno
+    para desambiguar objetos pequenos sostenidos en la mano (ej. pilas AA) frente a
+    falsos positivos de textura de piel ('clothes') o reflejos ('glass').
+    """
+    try:
+        import clip
+        from PIL import Image as _PILImage
+        clip_candidates = [
+            BASE_DIR / "weights" / "clip" / "ViT-B-32.pt",
+            Path("weights/clip/ViT-B-32.pt"),
+        ]
+        clip_path = next((str(c) for c in clip_candidates if c.exists()), "ViT-B-32")
+        clip_model, clip_prep = clip.load(clip_path, device="cpu")
+        clip_model.eval()
+        prompts_map = {
+            "cell phone": "a photo of a smartphone, mobile phone, iPhone, Android cell phone, or telephone screen",
+            "oil":        "a photo of cooking oil, used cooking oil in plastic bottle, or amber oil container",
+            "battery":    "a close-up photo of an AA battery, alkaline battery, rechargeable battery, or cylindrical battery cell held in hand or on table",
+            "biological": "a photo of food scraps, fruit peel, or organic waste",
+            "cardboard":  "a photo of a brown cardboard box or corrugated carton",
+            "clothes":    "a photo of a shirt, textile garment, or folded clothing",
+            "glass":      "a photo of a transparent drinking glass, glass cup, or glass bottle",
+            "metal":      "a photo of an aluminum soda can or tin food can",
+            "paper":      "a photo of a white sheet of paper, printed document, or newspaper",
+            "plastic":    "a photo of a plastic water bottle, plastic cup, plastic pen, or plastic container",
+            "shoes":      "a photo of a shoe, sneaker, or footwear",
+            "trash":      "a photo of crumpled wrapper or general garbage",
+        }
+        ordered_keys = list(prompts_map.keys())
+        tokens = clip.tokenize([prompts_map[k] for k in ordered_keys]).to("cpu")
+        with torch.inference_mode():
+            text_feat = clip_model.encode_text(tokens)
+            text_feat = text_feat / text_feat.norm(dim=-1, keepdim=True)
+        return clip_model, clip_prep, ordered_keys, text_feat
+    except Exception:
+        return None
+
+
 @st.cache_resource(show_spinner="Cargando modelo de IA...")
-def load_model(model_key: str = "best") -> YOLO:
-    path = MODEL_PATHS.get(model_key, str(BASE_DIR / "models" / "best.pt"))
+def load_model(model_key: str = "yolov8s_world") -> YOLO:
+    path = MODEL_PATHS.get(model_key, str(BASE_DIR / "yolov8s-worldv2.pt"))
     if not os.path.exists(path):
         candidates = [
+            BASE_DIR / "yolov8s-worldv2.pt",
+            Path("yolov8s-worldv2.pt"),
+            BASE_DIR / "models" / "waste_yolov8.pt",
+            Path("models/waste_yolov8.pt"),
             BASE_DIR / "models" / "best.pt",
             Path("models/best.pt"),
             BASE_DIR / "best.pt",
             Path("best.pt"),
-            BASE_DIR / "models" / "waste_yolov8.pt",
-            Path("models/waste_yolov8.pt"),
-            BASE_DIR / "yolov8s-worldv2.pt",
-            Path("yolov8s-worldv2.pt"),
             BASE_DIR / "yolov8n.pt",
             Path("yolov8n.pt"),
         ]
@@ -203,16 +271,26 @@ def load_model(model_key: str = "best") -> YOLO:
     model = YOLO(path)
     if "world" in str(path):
         model.set_classes([
-            "plastic bottle", "glass bottle", "bottle",
-            "cooking oil bottle", "oil bottle", "cooking oil", "used cooking oil",
+            # Vidrio y Vasos
+            "drinking glass", "glass cup", "glass bottle", "glass", "wine glass",
+            # Vasos y Potes Plasticos
+            "cup", "plastic cup", "disposable cup", "plastic container", "plastic jar", "jar", "pot",
+            # Botellas y Envases
+            "plastic bottle", "bottle", "thermos",
             "lotion bottle", "cream bottle", "shampoo bottle", "cosmetic bottle",
-            "cup", "plastic cup", "disposable cup",
+            # Utiles y Objetos Plasticos / Oficina
+            "pen", "plastic pen", "ballpoint pen", "marker", "pencil",
+            # Aceite
+            "cooking oil bottle", "oil bottle", "cooking oil", "used cooking oil",
+            # Metales y Latas
             "aluminum can", "tin can", "can",
-            "jar", "plastic jar", "pot", "plastic container",
+            # Papel y Carton
+            "cardboard box", "cardboard", "corrugated cardboard", "paper",
+            # RAEE y Baterias
+            "cell phone", "laptop", "mouse", "keyboard",
             "vape", "vape pen", "electronic cigarette",
-            "cell phone",
-            "aa battery", "battery", "batteries", "alkaline battery",
-            "cardboard box", "cardboard", "paper",
+            "battery", "batteries", "aa battery", "alkaline battery",
+            # Discos
             "compact disc", "cd", "tetra pak"
         ])
     return model
@@ -220,6 +298,11 @@ def load_model(model_key: str = "best") -> YOLO:
 
 def get_waste_info(class_name: str) -> dict | None:
     norm = class_name.lower().strip()
+    # Mapeo rápido de sinonimos de celulares y pantallas a celular
+    if norm in ("smartphone", "mobile phone", "telephone"):
+        norm = "cell phone"
+    elif norm in ("monitor", "tv"):
+        norm = "screen"
     norm_spaced = norm.replace("-", " ").replace("_", " ").strip()
 
     # Verificación inmediata de clases ignoradas (fondo, muebles, anatomía)
@@ -320,26 +403,45 @@ def draw_detections(frame_bgr: np.ndarray, detections: list[dict]) -> np.ndarray
         color = info.get("color", (46, 204, 113))
         x1, y1, x2, y2 = det["bbox"]
 
-        thick = 3 if det.get("is_held_in_center", False) else 2
         clean_label = det["label"].encode("ascii", "ignore").decode("ascii") or det["clase"]
-        tag = " [En Mano]" if det.get("is_held_in_center", False) else ""
         star = " *" if det.get("boost_applied", False) else ""
-        label_text = f"{clean_label} {det['confianza']:.0%}{tag}{star}"
+        label_text = f"{clean_label} {det['confianza']:.0%}{star}"
 
         if HAS_CV2 and cv2 is not None:
-            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thick)
-            (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+            # Marco sutil
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 1)
+
+            # Esquinas destacadas estilo scanner / visor tecnologico
+            box_w = x2 - x1
+            box_h = y2 - y1
+            c_len = max(14, min(28, box_w // 5, box_h // 5))
+            c_thick = 2
+            # Top-left
+            cv2.line(annotated, (x1, y1), (x1 + c_len, y1), color, c_thick)
+            cv2.line(annotated, (x1, y1), (x1, y1 + c_len), color, c_thick)
+            # Top-right
+            cv2.line(annotated, (x2, y1), (x2 - c_len, y1), color, c_thick)
+            cv2.line(annotated, (x2, y1), (x2, y1 + c_len), color, c_thick)
+            # Bottom-left
+            cv2.line(annotated, (x1, y2), (x1 + c_len, y2), color, c_thick)
+            cv2.line(annotated, (x1, y2), (x1, y2 - c_len), color, c_thick)
+            # Bottom-right
+            cv2.line(annotated, (x2, y2), (x2 - c_len, y2), color, c_thick)
+            cv2.line(annotated, (x2, y2), (x2, y2 - c_len), color, c_thick)
+
+            # Etiqueta limpia
+            (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.48, 1)
             top_y = max(y1, th + 10)
             cv2.rectangle(annotated, (x1, top_y - th - 8), (x1 + tw + 8, top_y), color, -1)
             cv2.putText(annotated, label_text, (x1 + 4, top_y - 4),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1, cv2.LINE_AA)
         else:
             from PIL import Image as _PILImg, ImageDraw as _PILDraw
             pil_temp = _PILImg.fromarray(annotated[:, :, ::-1])
             draw = _PILDraw.Draw(pil_temp)
             rgb_col = (color[2], color[1], color[0]) if len(color) == 3 else color
-            draw.rectangle([x1, y1, x2, y2], outline=rgb_col, width=thick)
-            lbl_w = len(label_text) * 8 + 8
+            draw.rectangle([x1, y1, x2, y2], outline=rgb_col, width=2)
+            lbl_w = len(label_text) * 7 + 6
             draw.rectangle([x1, max(0, y1 - 18), x1 + lbl_w, y1], fill=rgb_col)
             draw.text((x1 + 3, max(0, y1 - 16)), label_text, fill=(255, 255, 255))
             annotated = np.array(pil_temp)[:, :, ::-1].copy()
@@ -367,15 +469,96 @@ def run_inference(
         results = model(frame_bgr, conf=conf_threshold, imgsz=infer_imgsz, verbose=False)[0]
     raw_detections = []
 
-    # Soporte para modelos de clasificacion (YOLOv8-cls, como best.pt)
+    # Soporte para modelos de clasificacion (YOLOv8-cls, como best.pt / waste_yolov8.pt)
     if getattr(results, "probs", None) is not None:
         probs = results.probs
-        top1_id = int(probs.top1)
-        top1_conf = float(probs.top1conf)
-        raw_top1_cls = model.names[top1_id].lower()
+        p_full = probs.data.cpu().numpy().copy()
 
-        bbox = (int(w_img * 0.08), int(h_img * 0.08), int(w_img * 0.92), int(h_img * 0.92))
-        is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
+        # Visor centrado y proporcionado: enfoca el residuo sin desbordar los bordes
+        view_w = int(w_img * 0.62)
+        view_h = int(h_img * 0.68)
+        x1 = (w_img - view_w) // 2
+        y1 = (h_img - view_h) // 2
+        x2 = x1 + view_w
+        y2 = y1 + view_h
+        bbox = (x1, y1, x2, y2)
+        is_held_in_center = False
+        center_score = 1.0
+        hand_detected = False
+
+        # Evaluar recorte central y deteccion de palma/piel para evitar falsos positivos de 'clothes'
+        center_crop = frame_bgr[y1:y2, x1:x2]
+        p_crop = p_full.copy()
+        skin_ratio = 0.0
+
+        if center_crop.size > 0:
+            if HAS_CV2 and cv2 is not None:
+                hsv_crop = cv2.cvtColor(center_crop, cv2.COLOR_BGR2HSV)
+                skin_mask = cv2.inRange(hsv_crop, np.array([0, 35, 45], dtype=np.uint8), np.array([28, 210, 255], dtype=np.uint8))
+                skin_ratio = np.count_nonzero(skin_mask) / float(center_crop.shape[0] * center_crop.shape[1])
+
+            with torch.inference_mode():
+                crop_res = model(center_crop, imgsz=infer_imgsz, verbose=False)[0]
+            if getattr(crop_res, "probs", None) is not None:
+                p_crop = crop_res.probs.data.cpu().numpy().copy()
+
+        # Combinar probabilidades de plano general y recorte central
+        p_combined = 0.45 * p_full + 0.55 * p_crop
+
+        # Si hay alta presencia de piel/palma (>30%) sosteniendo un objeto pequeno,
+        # atenuar 'clothes' y 'shoes' (el modelo confunde las lineas de la palma con tela/calzado)
+        if skin_ratio > 0.30:
+            for idx_c, name_c in model.names.items():
+                if name_c.lower() in ("clothes", "shoes"):
+                    p_combined[int(idx_c)] *= 0.25
+
+        # Verificacion semantica con CLIP (ViT-B-32) cuando hay ambiguedad o posibles pilas/objetos en mano
+        clip_bundle = load_clip_verifier()
+        if clip_bundle is not None and center_crop.size > 0:
+            try:
+                from PIL import Image as _PILImg
+                clip_model, clip_prep, clip_keys, clip_text_feat = clip_bundle
+                pil_crop = _PILImg.fromarray(center_crop[:, :, ::-1])
+                img_in = clip_prep(pil_crop).unsqueeze(0)
+                with torch.inference_mode():
+                    img_feat = clip_model.encode_image(img_in)
+                    img_feat = img_feat / img_feat.norm(dim=-1, keepdim=True)
+                    p_clip_arr = (100.0 * img_feat @ clip_text_feat.T).softmax(dim=-1).cpu().numpy()[0]
+
+                clip_dict = {k: float(v) for k, v in zip(clip_keys, p_clip_arr)}
+                        if clip_dict.get("cell phone", 0.0) >= 0.30 and clip_dict["cell phone"] > clip_dict.get("plastic", 0.0):
+                            cls_name = "cell phone"
+                            conf = max(conf, clip_dict["cell phone"])
+                        elif clip_dict.get("oil", 0.0) >= 0.35:
+                            cls_name = "oil"
+                            conf = max(conf, clip_dict["oil"])
+                        elif clip_dict.get("battery", 0.0) >= 0.55:
+                            cls_name = "battery"
+                            conf = max(conf, clip_dict["battery"])
+
+                p_clip_mapped = np.zeros_like(p_combined)
+                for idx_c, name_c in model.names.items():
+                    p_clip_mapped[int(idx_c)] = clip_dict.get(name_c.lower(), 0.0)
+
+                # Fusionar semanticamente (50% CLIP + 50% YOLOv8-cls multi-escala)
+                p_combined = 0.50 * p_combined + 0.50 * p_clip_mapped
+                # Si alguno de los dos motores tiene alta certeza de pila/bateria (>65%), reforzar
+                for idx_c, name_c in model.names.items():
+                    if name_c.lower() == "battery":
+                        b_idx = int(idx_c)
+                        if p_clip_mapped[b_idx] >= 0.60 or p_crop[b_idx] >= 0.65:
+                            p_combined[b_idx] = max(p_combined[b_idx], 0.72)
+            except Exception:
+                pass
+
+        # Normalizar distribucion combinada
+        total_p = float(np.sum(p_combined))
+        if total_p > 0:
+            p_combined = p_combined / total_p
+
+        top1_id = int(np.argmax(p_combined))
+        top1_conf = float(p_combined[top1_id])
+        raw_top1_cls = model.names[top1_id].lower()
 
         # Evaluar candidatos integrando el auto-aprendizaje del feedback_store
         best_cls = raw_top1_cls
@@ -384,20 +567,20 @@ def run_inference(
             cls_name=raw_top1_cls,
             raw_conf=top1_conf,
             predicted_cls=raw_top1_cls,
-            is_held_in_center=is_held_in_center,
+            is_held_in_center=False,
             store=feedback_store
         )
 
         # Revisar top-5 clases del modelo por si el auto-aprendizaje promueve una clase corregida
-        top5_ids = probs.top5 if hasattr(probs, "top5") else [top1_id]
+        top5_ids = np.argsort(p_combined)[::-1][:5]
         for cid in top5_ids:
             c_name = model.names[int(cid)].lower()
-            c_raw = float(probs.data[int(cid)])
+            c_raw = float(p_combined[int(cid)])
             c_eff, c_boost = calculate_boosted_confidence(
                 cls_name=c_name,
                 raw_conf=c_raw,
                 predicted_cls=raw_top1_cls,
-                is_held_in_center=is_held_in_center,
+                is_held_in_center=False,
                 store=feedback_store
             )
             if c_eff > best_eff_conf:
@@ -406,7 +589,9 @@ def run_inference(
                 best_eff_conf = c_eff
                 best_boost = c_boost
 
-        if best_eff_conf >= conf_threshold:
+        # Umbral equilibrado para clasificacion verificada (evita falsos positivos con habitaciones, muebles o techos)
+        min_cls_conf = max(conf_threshold, 0.48)
+        if best_eff_conf >= min_cls_conf:
             info = get_waste_info(best_cls) or DEFAULT_WASTE
             raw_detections.append({
                 "clase":             best_cls,
@@ -418,21 +603,24 @@ def run_inference(
                 "confianza":         best_eff_conf,
                 "confianza_raw":     best_raw_conf,
                 "boost_applied":     best_boost,
-                "is_held_in_center": is_held_in_center,
-                "center_score":      center_score,
-                "hand_detected":     hand_detected,
+                "is_held_in_center": False,
+                "center_score":      1.0,
+                "hand_detected":     False,
                 "bbox":              bbox,
             })
 
-    # Soporte para modelos de deteccion con cajas delimitadoras (YOLOv8-det)
+    # Soporte para modelos de deteccion con cajas delimitadoras (YOLOv8-det / YOLO-World)
     elif getattr(results, "boxes", None) is not None and len(results.boxes) > 0:
+        clip_bundle = load_clip_verifier()
         for box in results.boxes:
             cls_id   = int(box.cls[0])
             cls_name = model.names[cls_id].lower()
             conf     = float(box.conf[0])
 
-            # Filtro estricto para evitar falsas alarmas de celular en botellas/envases
-            if cls_name in ("cell phone", "smartphone") and conf < 0.38:
+            # Mapeo directo y desambiguacion de dispositivos moviles a Celular / RAEE
+            if cls_name in ("cell phone", "smartphone", "mobile phone", "telephone", "screen", "monitor"):
+                cls_name = "cell phone"
+            if cls_name == "cell phone" and conf < 0.22:
                 continue
 
             # Filtro de clases ignoradas
@@ -454,6 +642,38 @@ def run_inference(
             # Filtro estricto para ruido de 'carton' en fondo
             if cls_name in ("cardboard", "carton") and conf < 0.30:
                 continue
+
+            # Desambiguacion con CLIP para verificar celulares, pilas y botellas de aceite
+            if clip_bundle is not None and area_ratio < 0.65:
+                try:
+                    from PIL import Image as _PILImg
+                    clip_model, clip_prep, clip_keys, clip_text_feat = clip_bundle
+                    pad_x, pad_y = int(bw * 0.10), int(bh * 0.10)
+                    roi_crop = frame_bgr[max(0, y1 - pad_y):min(h_img, y2 + pad_y), max(0, x1 - pad_x):min(w_img, x2 + pad_x)]
+                    if roi_crop.size > 0:
+                        pil_roi = _PILImg.fromarray(roi_crop[:, :, ::-1])
+                        img_in = clip_prep(pil_roi).unsqueeze(0)
+                        with torch.inference_mode():
+                            img_feat = clip_model.encode_image(img_in)
+                            img_feat = img_feat / img_feat.norm(dim=-1, keepdim=True)
+                            p_clip_arr = (100.0 * img_feat @ clip_text_feat.T).softmax(dim=-1).cpu().numpy()[0]
+                        clip_dict = {k: float(v) for k, v in zip(clip_keys, p_clip_arr)}
+                        if clip_dict.get("cell phone", 0.0) >= 0.30 and clip_dict["cell phone"] > clip_dict.get("plastic", 0.0):
+                            cls_name = "cell phone"
+                            conf = max(conf, clip_dict["cell phone"])
+                        elif clip_dict.get("oil", 0.0) >= 0.35:
+                            cls_name = "oil"
+                            conf = max(conf, clip_dict["oil"])
+                        elif clip_dict.get("battery", 0.0) >= 0.55:
+                            cls_name = "battery"
+                            conf = max(conf, clip_dict["battery"])
+
+
+
+                            cls_name = "battery"
+                            conf = max(conf, clip_dict["battery"])
+                except Exception:
+                    pass
 
             info = get_waste_info(cls_name)
             if info is None:
@@ -479,14 +699,55 @@ def run_inference(
                 "confianza":         effective_conf,
                 "confianza_raw":     conf,
                 "boost_applied":     boost_applied,
-                "is_held_in_center": is_held_in_center,
+                "is_held_in_center": False,
                 "center_score":      center_score,
                 "hand_detected":     hand_detected,
                 "bbox":              bbox,
             })
 
+    # Fallback semantico centrado si el detector de cajas no supero el umbral (ej. objeto pequeno en la palma de la mano)
+    if not raw_detections and getattr(results, "probs", None) is None:
+        clip_bundle = load_clip_verifier()
+        if clip_bundle is not None:
+            try:
+                from PIL import Image as _PILImg
+                clip_model, clip_prep, clip_keys, clip_text_feat = clip_bundle
+                view_w, view_h = int(w_img * 0.62), int(h_img * 0.68)
+                cx1, cy1 = (w_img - view_w) // 2, (h_img - view_h) // 2
+                cx2, cy2 = cx1 + view_w, cy1 + view_h
+                center_crop = frame_bgr[cy1:cy2, cx1:cx2]
+                if center_crop.size > 0:
+                    pil_crop = _PILImg.fromarray(center_crop[:, :, ::-1])
+                    img_in = clip_prep(pil_crop).unsqueeze(0)
+                    with torch.inference_mode():
+                        img_feat = clip_model.encode_image(img_in)
+                        img_feat = img_feat / img_feat.norm(dim=-1, keepdim=True)
+                        p_clip_arr = (100.0 * img_feat @ clip_text_feat.T).softmax(dim=-1).cpu().numpy()[0]
+                    best_idx = int(np.argmax(p_clip_arr))
+                    best_clip_cls = clip_keys[best_idx]
+                    best_clip_conf = float(p_clip_arr[best_idx])
+                    if best_clip_conf >= 0.55 and best_clip_cls not in ("clothes", "shoes", "trash"):
+                        info = get_waste_info(best_clip_cls) or DEFAULT_WASTE
+                        raw_detections.append({
+                            "clase":             best_clip_cls,
+                            "label":             info["label"],
+                            "emoji":             info.get("emoji", "📦"),
+                            "tipo":              info["tipo"],
+                            "accion":            info["accion"],
+                            "es_especial":       info.get("es_especial", False),
+                            "confianza":         best_clip_conf,
+                            "confianza_raw":     best_clip_conf,
+                            "boost_applied":     False,
+                            "is_held_in_center": False,
+                            "center_score":      1.0,
+                            "hand_detected":     False,
+                            "bbox":              (cx1, cy1, cx2, cy2),
+                        })
+            except Exception:
+                pass
+
     # Non-Maximum Suppression (NMS) para eliminar solapamientos duplicados del mismo objeto
-    raw_detections.sort(key=lambda d: d["confianza"] + (0.15 if d["is_held_in_center"] else 0.0), reverse=True)
+    raw_detections.sort(key=lambda d: d["confianza"], reverse=True)
     
     def compute_iou(box1, box2):
         bx1 = max(box1[0], box2[0])
@@ -510,5 +771,9 @@ def run_inference(
             detections.append(d)
 
     # Anotar frame dibujando cada uno de los objetos detectados (deteccion multiple)
+    # Si hay una deteccion de Celular o Residuo Especial junto a una etiqueta generica (plastico/vidrio) en la misma zona, priorizar Celular
+    has_phone = any(d.get("clase") in ("cell phone", "smartphone") for d in detections)
+    if has_phone:
+        detections = [d for d in detections if not (d.get("clase") in ("plastic", "plastic bottle", "battery") and d.get("confianza", 0) < 0.85)]
     annotated = draw_detections(frame_bgr, detections)
     return annotated, detections
