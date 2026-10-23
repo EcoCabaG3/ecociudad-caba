@@ -362,7 +362,7 @@ html, body, [class*="css"], .stApp {
     border-radius: 12px;
     padding: 10px 14px;
     margin: 0 auto 8px auto;
-    max-width: 720px;
+    max-width: 820px !important;
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 .scanner-header-bar {
@@ -403,16 +403,21 @@ html, body, [class*="css"], .stApp {
 
 /* Estilo iframe webrtc e imagenes autoajustables a pantalla */
 [data-testid="stCustomComponentV1"] iframe {
+    width: 100% !important;
+    min-height: 60vh !important;
+    max-height: 640px !important;
+    height: 60vh !important;
+    max-height: 640px !important;
+    max-width: 820px !important;
     border-radius: 12px !important;
     background-color: #0F172A !important;
     border: 1px solid #1E293B !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18) !important;
-    max-width: 720px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18) !important;
     margin: 0 auto !important;
     display: block !important;
 }
 [data-testid="stImage"] img {
-    max-height: 58vh !important;
+    max-height: 52vh !important;
     width: auto !important;
     max-width: 100% !important;
     object-fit: contain !important;
@@ -699,11 +704,41 @@ st.markdown(f"""
 </header>
 """, unsafe_allow_html=True)
 
-# ─── Variables y Configuración ──────────────────────────────────────────────
+# ─── Variables y Configuración de Modelos ────────────────────────────────────
 _APP_DIR = Path(__file__).resolve().parent
-model_choice = "best" if ((_APP_DIR / "models" / "best.pt").exists() or Path("models/best.pt").exists() or Path("best.pt").exists()) else ("waste_specialized" if Path("models/waste_yolov8.pt").exists() else ("yolov8s_world" if Path("yolov8s-worldv2.pt").exists() else "yolov8n"))
-CONF_THRESH = 0.28
-FILTER_PEOPLE = True
+
+available_models = {}
+if (_APP_DIR / "yolov8s-worldv2.pt").exists() or Path("yolov8s-worldv2.pt").exists():
+    available_models["yolov8s_world"] = "🌐 YOLO-World v2 (Multi-objeto con recuadros)"
+if (_APP_DIR / "models" / "waste_yolov8.pt").exists() or Path("models/waste_yolov8.pt").exists():
+    available_models["waste_specialized"] = "🔬 YOLOv8 Especializado (waste_yolov8)"
+if (_APP_DIR / "models" / "best.pt").exists() or Path("models/best.pt").exists() or Path("best.pt").exists():
+    available_models["best"] = "📊 YOLOv8s-cls (Clasificador CABA / TrashNet)"
+if not available_models:
+    available_models["yolov8n"] = "⚡ YOLOv8 Nano"
+
+with st.sidebar:
+    if LOGO_B64:
+        st.markdown(f'<div style="text-align:center; padding: 0.5rem 0 1rem;"><img src="{LOGO_B64}" style="max-height:48px; width:auto;"></div>', unsafe_allow_html=True)
+    st.markdown("### ⚙️ Motor de Visión IA")
+    model_choice = st.selectbox(
+        "Modelo de Visión activo:",
+        options=list(available_models.keys()),
+        format_func=lambda k: available_models[k],
+        index=0,
+        help="YOLO-World v2 permite detectar objetos individuales como vasos, botellas, lapiceras y latas con cajas delimitadoras precisas en tiempo real."
+    )
+    CONF_THRESH = st.slider("Sensibilidad / Umbral de confianza:", min_value=0.15, max_value=0.70, value=0.25, step=0.05)
+    FILTER_PEOPLE = True
+    st.markdown("---")
+    st.markdown("""
+<div style="font-size:0.8rem; color:#64748B; line-height:1.4;">
+  <b>Modos de Detección:</b><br>
+  • <b>YOLO-World v2:</b> Detecta objetos individuales con recuadros exactos (vasos, botellas, lapiceras, etc.).<br>
+  • <b>Residuos Especializados:</b> Modelo enfocado en reciclables urbanos.<br>
+  • <b>YOLOv8s-cls:</b> Clasificador general de imagen completa.
+</div>
+""", unsafe_allow_html=True)
 
 # ─── Carga del Modelo ────────────────────────────────────────────────────────
 model = load_model(model_choice)
@@ -765,11 +800,12 @@ with tab_live:
         "device_access_denied": "Acceso a la cámara denegado.",
     }
 
-    # Worker asincrono en segundo plano para no bloquear el flujo WebRTC ni saturar la memoria
+    # Worker asincrono en segundo plano con filtro de estabilidad temporal (evita parpadeos de 1 frame)
     worker_state = {
         "lock": threading.Lock(),
         "is_busy": False,
         "cached_detections": [],
+        "history": [],
         "last_infer_time": 0.0,
     }
 
@@ -784,6 +820,20 @@ with tab_live:
                 imgsz=384,
             )
             with worker_state["lock"]:
+                hist = worker_state["history"]
+                hist.append(detections)
+                if len(hist) > 3:
+                    hist.pop(0)
+
+                # Si la deteccion actual es de baja confianza (<52%) y en los frames previos
+                # hubo una clase consistente de mayor confianza, mantener la clase estable
+                if len(detections) == 1 and detections[0]["confianza"] < 0.52 and len(hist) >= 2:
+                    prev_dets = hist[-2]
+                    if prev_dets and prev_dets[0]["confianza"] >= 0.55:
+                        stable = dict(prev_dets[0])
+                        stable["bbox"] = detections[0]["bbox"]
+                        detections = [stable]
+
                 worker_state["cached_detections"] = detections
         except Exception:
             pass
@@ -835,8 +885,11 @@ with tab_live:
             "muted": True,
             "style": {
                 "width": "100%",
-                "maxWidth": "700px",
-                "maxHeight": "58vh",
+                "maxWidth": "820px",
+                "height": "460px",
+                "minHeight": "440px",
+                "maxHeight": "64vh",
+                "aspectRatio": "4/3",
                 "objectFit": "contain",
                 "margin": "0 auto",
                 "display": "block",
@@ -852,7 +905,7 @@ with tab_live:
     st.caption("💡 ¿Tu dispositivo o red móvil restringe WebRTC? En la pestaña **'Subir Archivo / Foto'** podés usar la cámara instantánea sin streaming continuo.")
 
 with tab_photo:
-    col_in, col_out = st.columns([1, 1], gap="large")
+    col_in, col_out = st.columns([1, 1], gap="medium")
 
     with col_in:
         st.subheader("📥 Carga de Archivo o Foto")
@@ -936,8 +989,8 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                     ("battery",    "🔋 Pila / Batería"),
                     ("biological", "🍂 Orgánico / Restos"),
                     ("clothes",    "👕 Ropa / Textil"),
-                    ("shoes",      "👟 Calzado"),
-                    ("trash",      "🗑️ Basura Común"),
+                    ("cell phone", "📱 Celular / RAEE"),
+                    ("oil",        "🍳 Aceite Usado (AVU)"),
                 ]
                 cols_btn = st.columns(5)
                 for idx, (mat_key, mat_label) in enumerate(quick_materials):
@@ -1153,8 +1206,8 @@ Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda
                         ("battery",    "🔋 Pila / Batería"),
                         ("biological", "🍂 Orgánico / Restos"),
                         ("clothes",    "👕 Ropa / Textil"),
-                        ("shoes",      "👟 Calzado"),
-                        ("trash",      "🗑️ Basura Común"),
+                        ("cell phone", "📱 Celular / RAEE"),
+                        ("oil",        "🍳 Aceite Usado (AVU)"),
                     ]
 
                     st.write("")
