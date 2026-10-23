@@ -1,8 +1,9 @@
-﻿streamlit>=1.35.0
+streamlit>=1.35.0
 ultralytics-opencv-headless
 streamlit-webrtc>=0.47.0
 av>=12.0.0
 opencv-python-headless>=4.9.0
 Pillow>=10.0.0
 numpy>=1.26.0
-git+https://github.com/openai/CLIP.git
+pydeck>=0.8.0
+pandas>=2.0.0
