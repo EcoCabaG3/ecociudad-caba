@@ -59,7 +59,7 @@ FILTROS_MATERIAL_UI = {
 
 CATEGORIAS_OFICIALES_GCBA = {
     "raee": {
-        "titulo": "🔋 RAEE (Aparatos Eléctricos y Electrónicos)",
+        "titulo": "📱 RAEE (Aparatos Eléctricos, Celulares y Computación)",
         "items": "Celulares, computadoras, notebooks, tablets, cámaras, radios, teclados, mouse, pequeños electrodomésticos.",
         "condicion": "Limpios y completos. Hasta 10 aparatos por persona. Se reciben en Puntos Verdes Especiales y Puntos Verdes habilitados.",
         "obligatorio_punto_verde": True
