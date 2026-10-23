@@ -43,7 +43,7 @@ try:
 except Exception:
     pass
 
-import av
+import gc, av
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -838,6 +838,7 @@ with tab_live:
         except Exception:
             pass
         finally:
+            del frame_copy
             worker_state["is_busy"] = False
 
     def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
