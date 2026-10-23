@@ -526,15 +526,6 @@ def run_inference(
                     p_clip_arr = (100.0 * img_feat @ clip_text_feat.T).softmax(dim=-1).cpu().numpy()[0]
 
                 clip_dict = {k: float(v) for k, v in zip(clip_keys, p_clip_arr)}
-                        if clip_dict.get("cell phone", 0.0) >= 0.30 and clip_dict["cell phone"] > clip_dict.get("plastic", 0.0):
-                            cls_name = "cell phone"
-                            conf = max(conf, clip_dict["cell phone"])
-                        elif clip_dict.get("oil", 0.0) >= 0.35:
-                            cls_name = "oil"
-                            conf = max(conf, clip_dict["oil"])
-                        elif clip_dict.get("battery", 0.0) >= 0.55:
-                            cls_name = "battery"
-                            conf = max(conf, clip_dict["battery"])
 
                 p_clip_mapped = np.zeros_like(p_combined)
                 for idx_c, name_c in model.names.items():
@@ -665,11 +656,6 @@ def run_inference(
                             cls_name = "oil"
                             conf = max(conf, clip_dict["oil"])
                         elif clip_dict.get("battery", 0.0) >= 0.55:
-                            cls_name = "battery"
-                            conf = max(conf, clip_dict["battery"])
-
-
-
                             cls_name = "battery"
                             conf = max(conf, clip_dict["battery"])
                 except Exception:
