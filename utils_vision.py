@@ -238,31 +238,36 @@ def load_model(model_key: str = "yolov8s_world") -> YOLO:
     model = YOLO(path)
     if "world" in str(path):
         # Vocabulario abierto de YOLO-World incluyendo personas para filtrar fondos automaticamente
-        model.set_classes([
-            # Personas y Rostros (para deteccion y descarte de fondos)
-            "person", "human face", "man", "woman",
-            # Vidrio y Vasos
-            "drinking glass", "glass cup", "glass bottle", "glass", "wine glass",
-            # Vasos y Potes Plasticos
-            "cup", "plastic cup", "disposable cup", "plastic container", "plastic jar", "jar", "pot",
-            # Botellas y Envases
-            "plastic bottle", "bottle", "thermos",
-            "lotion bottle", "cream bottle", "shampoo bottle", "cosmetic bottle",
-            # Utiles y Objetos Plasticos / Oficina
-            "pen", "plastic pen", "ballpoint pen", "marker", "pencil",
-            # Aceite
-            "cooking oil bottle", "oil bottle", "cooking oil", "used cooking oil",
-            # Metales y Latas
-            "aluminum can", "tin can", "can",
-            # Papel y Carton
-            "cardboard box", "cardboard", "corrugated cardboard", "paper",
-            # RAEE y Baterias
-            "cell phone", "laptop", "mouse", "keyboard",
-            "vape", "vape pen", "electronic cigarette",
-            "battery", "batteries", "aa battery", "alkaline battery",
-            # Discos
-            "compact disc", "cd", "tetra pak"
-        ])
+        try:
+            model.set_classes([
+                # Personas y Rostros (para deteccion y descarte de fondos)
+                "person", "human face", "man", "woman",
+                # Vidrio y Vasos
+                "drinking glass", "glass cup", "glass bottle", "glass", "wine glass",
+                # Vasos y Potes Plasticos
+                "cup", "plastic cup", "disposable cup", "plastic container", "plastic jar", "jar", "pot",
+                # Botellas y Envases
+                "plastic bottle", "bottle", "thermos",
+                "lotion bottle", "cream bottle", "shampoo bottle", "cosmetic bottle",
+                # Utiles y Objetos Plasticos / Oficina
+                "pen", "plastic pen", "ballpoint pen", "marker", "pencil",
+                # Aceite
+                "cooking oil bottle", "oil bottle", "cooking oil", "used cooking oil",
+                # Metales y Latas
+                "aluminum can", "tin can", "can",
+                # Papel y Carton
+                "cardboard box", "cardboard", "corrugated cardboard", "paper",
+                # RAEE y Baterias
+                "cell phone", "laptop", "mouse", "keyboard",
+                "vape", "vape pen", "electronic cigarette",
+                "battery", "batteries", "aa battery", "alkaline battery",
+                # Discos
+                "compact disc", "cd", "tetra pak"
+            ])
+            gc.collect()
+        except Exception as e:
+            # Fallback tolerante si el modulo clip no esta cargado en el entorno
+            print(f"[EcoCiudad] Advertencia al configurar clases en YOLO-World: {e}")
     return model
 
 
