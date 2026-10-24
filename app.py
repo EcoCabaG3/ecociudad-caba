@@ -12,6 +12,24 @@ from pathlib import Path
 import tempfile
 
 # Configurar directorio temporal de Ultralytics (evita advertencia de directorios duplicados o de solo lectura)
+MAX_CPU_CORES = 2
+MAX_MEMORY_BYTES = int(2.5 * 1024 * 1024 * 1024)  # 2.5 GB limite maximo de memoria
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+os.environ["OPENBLAS_NUM_THREADS"] = "2"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "2"
+os.environ["NUMEXPR_NUM_THREADS"] = "2"
+os.environ["TORCH_NUM_THREADS"] = "2"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["MALLOC_ARENA_MAX"] = "2"
+os.environ["MALLOC_TRIM_THRESHOLD_"] = "65536"
+try:
+    if hasattr(os, "sched_getaffinity") and hasattr(os, "sched_setaffinity"):
+        _avail_cores = sorted(os.sched_getaffinity(0))
+        if len(_avail_cores) > MAX_CPU_CORES:
+            os.sched_setaffinity(0, set(_avail_cores[:MAX_CPU_CORES]))
+except Exception:
+    pass
 os.environ["YOLO_CONFIG_DIR"] = tempfile.gettempdir()
 os.environ["YOLO_VERBOSE"] = "False"
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -52,7 +70,7 @@ import pydeck as pdk
 from PIL import Image
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
 
-from utils_vision import load_model, run_inference, draw_detections, get_waste_info
+from utils_vision import load_model, run_inference, draw_detections, get_waste_info, trim_memory, get_process_rss_bytes, MAX_MEMORY_BYTES
 from feedback_store import load_feedback, add_correction, get_total_corrections
 from puntos_verdes_data import (
     PUNTOS_VERDES_LIST,
@@ -807,6 +825,7 @@ with tab_live:
         "cached_detections": [],
         "history": [],
         "last_infer_time": 0.0,
+        "infer_count": 0,
     }
 
     def _async_infer_task(frame_copy):
@@ -817,7 +836,8 @@ with tab_live:
                 conf_threshold=CONF_THRESH,
                 filter_people=FILTER_PEOPLE,
                 feedback_store=fb_store,
-                imgsz=384,
+                imgsz=320,
+                draw=False,
             )
             with worker_state["lock"]:
                 hist = worker_state["history"]
@@ -839,20 +859,32 @@ with tab_live:
             pass
         finally:
             del frame_copy
+            worker_state["infer_count"] += 1
+            if worker_state["infer_count"] % 15 == 0 or get_process_rss_bytes() > int(MAX_MEMORY_BYTES * 0.72):
+                trim_memory()
             worker_state["is_busy"] = False
 
     def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
         try:
+            now = time.time()
+            with worker_state["lock"]:
+                current_dets = list(worker_state["cached_detections"])
+                should_infer = (not worker_state["is_busy"]) and (now - worker_state["last_infer_time"] >= 0.40)
+                if should_infer:
+                    worker_state["is_busy"] = True
+                    worker_state["last_infer_time"] = now
+            if not should_infer and not current_dets:
+                return frame
             img_bgr = frame.to_ndarray(format="bgr24")
             now = time.time()
 
             # Disparar inferencia en segundo plano cada 0.35s sin demorar el video en tiempo real
-            if not worker_state["is_busy"] and (now - worker_state["last_infer_time"] >= 0.35):
+            if should_infer:
                 worker_state["is_busy"] = True
                 worker_state["last_infer_time"] = now
                 threading.Thread(
                     target=_async_infer_task,
-                    args=(img_bgr.copy(),),
+                    args=(img_bgr.copy() if current_dets else img_bgr,),
                     daemon=True
                 ).start()
 
@@ -861,7 +893,7 @@ with tab_live:
                 current_dets = list(worker_state["cached_detections"])
 
             if current_dets:
-                annotated = draw_detections(img_bgr, current_dets)
+                annotated = draw_detections(img_bgr, current_dets, in_place=True)
                 return av.VideoFrame.from_ndarray(annotated, format="bgr24")
             return frame
         except Exception:
@@ -874,8 +906,9 @@ with tab_live:
         video_frame_callback=video_frame_callback,
         media_stream_constraints={
             "video": {
-                "width": {"ideal": 640, "max": 640},
-                "height": {"ideal": 480, "max": 480},
+                "width": {"ideal": 480, "max": 640},
+                "height": {"ideal": 360, "max": 480},
+                "facingMode": "environment",
                 "frameRate": {"ideal": 15, "max": 20},
             },
             "audio": False,
