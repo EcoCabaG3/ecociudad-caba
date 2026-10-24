@@ -1,16 +1,43 @@
 """
 utils_vision.py - Deteccion, analisis espacial y clasificacion de residuos EcoCiudad CABA
-Optimizacion de memoria y recursos para Streamlit Cloud (inferencia liviana en CPU).
+Optimizacion estricta de recursos: Max 2 CPU Cores y Max 2.5 GB RAM para Streamlit Cloud.
 """
 import os
 import math
 import gc
+import ctypes
+
+# ─── Limites de Recursos Hardware (Max 2 Cores y Max 2.5 GB RAM) ──────────────
+MAX_CPU_CORES = 2
+MAX_MEMORY_BYTES = int(2.5 * 1024 * 1024 * 1024)  # 2.5 GB tope estricto
+
+os.environ["OMP_NUM_THREADS"] = str(MAX_CPU_CORES)
+os.environ["MKL_NUM_THREADS"] = str(MAX_CPU_CORES)
+os.environ["OPENBLAS_NUM_THREADS"] = str(MAX_CPU_CORES)
+os.environ["VECLIB_MAXIMUM_THREADS"] = str(MAX_CPU_CORES)
+os.environ["NUMEXPR_NUM_THREADS"] = str(MAX_CPU_CORES)
+os.environ["TORCH_NUM_THREADS"] = str(MAX_CPU_CORES)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["MALLOC_ARENA_MAX"] = "2"
+os.environ["MALLOC_TRIM_THRESHOLD_"] = "65536"
+
+try:
+    if hasattr(os, "sched_getaffinity") and hasattr(os, "sched_setaffinity"):
+        _avail_cores = sorted(os.sched_getaffinity(0))
+        if len(_avail_cores) > MAX_CPU_CORES:
+            os.sched_setaffinity(0, set(_avail_cores[:MAX_CPU_CORES]))
+except Exception:
+    pass
+
 import numpy as np
 import torch
 
-# Optimizacion estricta de memoria para Streamlit Cloud (< 1 GB RAM)
-torch.set_num_threads(1)
+torch.set_num_threads(MAX_CPU_CORES)
 torch.set_grad_enabled(False)
+try:
+    torch.set_num_interop_threads(MAX_CPU_CORES)
+except Exception:
+    pass
 
 import streamlit as st
 from ultralytics import YOLO
@@ -19,9 +46,40 @@ from feedback_store import calculate_boosted_confidence
 try:
     import cv2
     HAS_CV2 = True
+    try:
+        cv2.setNumThreads(MAX_CPU_CORES)
+    except Exception:
+        pass
 except Exception:
     cv2 = None
     HAS_CV2 = False
+
+try:
+    _libc = ctypes.CDLL("libc.so.6")
+except Exception:
+    _libc = None
+
+
+def trim_memory() -> None:
+    """Libera referencias de Python y devuelve bloques libres de C/C++ al kernel Linux."""
+    gc.collect()
+    if _libc is not None:
+        try:
+            _libc.malloc_trim(0)
+        except Exception:
+            pass
+
+
+def get_process_rss_bytes() -> int:
+    """Obtiene el uso actual de memoria fisica RSS en bytes (Linux /proc/self/statm)."""
+    try:
+        with open("/proc/self/statm", "r", encoding="utf-8") as f:
+            parts = f.read().split()
+            if len(parts) >= 2:
+                return int(parts[1]) * os.sysconf("SC_PAGE_SIZE")
+    except Exception:
+        pass
+    return 0
 
 # ---------------------------------------------------------------------------
 # MAPEO COMPLETO DE RESIDUOS (CABA) - INCLUYE RESIDUOS ESPECIALES GCBA
@@ -218,8 +276,9 @@ MODEL_PATHS = {
 }
 
 
-@st.cache_resource(show_spinner="Cargando modelo de IA...")
+@st.cache_resource(show_spinner="Cargando modelo de IA...", max_entries=1)
 def load_model(model_key: str = "yolov8s_world") -> YOLO:
+    trim_memory()
     path = MODEL_PATHS.get(model_key, str(BASE_DIR / "yolov8s-worldv2.pt"))
     if not os.path.exists(path):
         candidates = [
@@ -264,7 +323,14 @@ def load_model(model_key: str = "yolov8s_world") -> YOLO:
                 # Discos
                 "compact disc", "cd", "tetra pak"
             ])
-            gc.collect()
+            # Liberar el modelo CLIP interno tras calcular txt_feats (ahorra ~380 MB de RAM)
+            if hasattr(model, "model") and hasattr(model.model, "clip_model"):
+                model.model.clip_model = None
+                try:
+                    delattr(model.model, "clip_model")
+                except Exception:
+                    pass
+            trim_memory()
         except Exception as e:
             # Fallback tolerante si el modulo clip no esta cargado en el entorno
             print(f"[EcoCiudad] Advertencia al configurar clases en YOLO-World: {e}")
@@ -362,7 +428,7 @@ def analyze_spatial_and_hand_context(frame_bgr: np.ndarray, bbox: tuple[int, int
     return is_held_in_center, center_score, hand_detected
 
 
-def draw_detections(frame_bgr: np.ndarray, detections: list[dict]) -> np.ndarray:
+def draw_detections(frame_bgr: np.ndarray, detections: list[dict], in_place: bool = False) -> np.ndarray:
     """
     Dibuja rectangulos delimitadores y etiquetas sobre el frame BGR.
     Soporta tanto OpenCV como fallback puro PIL sin requerir dependencias pesadas.
@@ -370,7 +436,7 @@ def draw_detections(frame_bgr: np.ndarray, detections: list[dict]) -> np.ndarray
     if not detections:
         return frame_bgr
 
-    annotated = frame_bgr.copy()
+    annotated = frame_bgr if in_place else frame_bgr.copy()
     for det in detections:
         info = get_waste_info(det["clase"])
         if info is None:
@@ -431,10 +497,11 @@ def run_inference(
     filter_people: bool = True,
     feedback_store: dict | None = None,
     imgsz: int = 384,
+    draw: bool = True,
 ) -> tuple[np.ndarray, list[dict]]:
     """
-    Ejecuta deteccion YOLO optimizada en CPU y memoria para Streamlit Cloud.
-    Elimina modelos secundarios pesados en memoria (CLIP) para prevenir saturacion de RAM.
+    Ejecuta deteccion YOLO optimizada en CPU y memoria para Streamlit Cloud (Max 2 Cores / 2.5 GB RAM).
+    Si draw=False (usado en worker de video en vivo), evita copiar y dibujar el frame descartado.
     """
     h_img, w_img = frame_bgr.shape[:2]
     frame_area = w_img * h_img
@@ -467,10 +534,12 @@ def run_inference(
                 skin_mask = cv2.inRange(hsv_crop, np.array([0, 35, 45], dtype=np.uint8), np.array([28, 210, 255], dtype=np.uint8))
                 skin_ratio = np.count_nonzero(skin_mask) / float(center_crop.shape[0] * center_crop.shape[1])
 
-            with torch.inference_mode():
-                crop_res = model(center_crop, imgsz=infer_imgsz, verbose=False)[0]
-            if getattr(crop_res, "probs", None) is not None:
-                p_crop = crop_res.probs.data.cpu().numpy().copy()
+            # En fotos fijas (draw=True) refinamos con recorte central; en video en vivo usamos 1 sola pasada para 0 lag
+            if draw:
+                with torch.inference_mode():
+                    crop_res = model(center_crop, imgsz=infer_imgsz, verbose=False)[0]
+                if getattr(crop_res, "probs", None) is not None:
+                    p_crop = crop_res.probs.data.cpu().numpy().copy()
 
         p_combined = 0.45 * p_full + 0.55 * p_crop
 
@@ -625,5 +694,5 @@ def run_inference(
         if not overlap:
             detections.append(d)
 
-    annotated = draw_detections(frame_bgr, detections)
+    annotated = draw_detections(frame_bgr, detections) if draw else frame_bgr
     return annotated, detections
