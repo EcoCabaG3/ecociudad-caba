@@ -9,7 +9,7 @@ import ctypes
 
 # ─── Limites de Recursos Hardware (Max 2 Cores y Max 2.5 GB RAM) ──────────────
 MAX_CPU_CORES = 2
-MAX_MEMORY_BYTES = int(2.5 * 1024 * 1024 * 1024)  # 2.5 GB tope estricto
+MAX_MEMORY_BYTES = int(2.5 * 1024 * 1024 * 1024)
 
 os.environ["OMP_NUM_THREADS"] = str(MAX_CPU_CORES)
 os.environ["MKL_NUM_THREADS"] = str(MAX_CPU_CORES)
