@@ -70,7 +70,16 @@ import pydeck as pdk
 from PIL import Image
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
 
-from utils_vision import load_model, run_inference, draw_detections, get_waste_info, trim_memory, get_process_rss_bytes, MAX_MEMORY_BYTES
+from utils_vision import (
+    load_cascade_engine,
+    load_model,
+    run_inference,
+    draw_detections,
+    get_waste_info,
+    trim_memory,
+    get_process_rss_bytes,
+    MAX_MEMORY_BYTES
+)
 from feedback_store import load_feedback, add_correction, get_total_corrections
 from puntos_verdes_data import (
     PUNTOS_VERDES_LIST,
@@ -739,13 +748,13 @@ with st.sidebar:
     if LOGO_B64:
         st.markdown(f'<div style="text-align:center; padding: 0.5rem 0 1rem;"><img src="{LOGO_B64}" style="max-height:48px; width:auto;"></div>', unsafe_allow_html=True)
     st.markdown("### ⚙️ Motor de Visión IA")
-    model_choice = st.selectbox(
-        "Modelo de Visión activo:",
-        options=list(available_models.keys()),
-        format_func=lambda k: available_models[k],
-        index=0,
-        help="YOLO-World v2 permite detectar objetos individuales como vasos, botellas, lapiceras y latas con cajas delimitadoras precisas en tiempo real."
-    )
+    st.markdown('<div style="background:#F0FDF4; border:1px solid #86EFAC; border-radius:10px; padding:0.75rem 0.85rem; margin-bottom:0.9rem;"><div style="display:flex; align-items:center; gap:6px; font-weight:700; color:#15803D; font-size:0.86rem;"><span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span>Pipeline Híbrido en Cascada</div><div style="font-size:0.74rem; color:#166534; margin-top:4px; line-height:1.35;"><b>Modo Autónomo Inteligente:</b><br>• <b>Paso 1:</b> Detector multi-objeto con recuadros (YOLO-World v2).<br>• <b>Paso 2:</b> Respaldo automático a clasificador focalizado (YOLOv8s-cls) si no hay detección directa.</div><div style="margin-top:6px; font-size:0.70rem; color:#047857; font-weight:600; display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:7px; height:7px; background:#10B981; border-radius:50%;"></span>Sin reinicios · Transición fluida en vivo</div></div>', unsafe_allow_html=True)
+
+
+
+
+
+
     CONF_THRESH = st.slider("Sensibilidad / Umbral de confianza:", min_value=0.15, max_value=0.70, value=0.25, step=0.05)
     FILTER_PEOPLE = True
     st.markdown("---")
@@ -759,7 +768,7 @@ with st.sidebar:
 """, unsafe_allow_html=True)
 
 # ─── Carga del Modelo ────────────────────────────────────────────────────────
-model = load_model(model_choice)
+models = load_cascade_engine()
 
 # Encabezado directo y limpio sin tarjeta gigante envolvente
 st.markdown("""
@@ -831,14 +840,17 @@ with tab_live:
     def _async_infer_task(frame_copy):
         try:
             _, detections = run_inference(
-                model,
+                models,
                 frame_copy,
                 conf_threshold=CONF_THRESH,
                 filter_people=FILTER_PEOPLE,
                 feedback_store=fb_store,
+
                 imgsz=320,
                 draw=False,
             )
+
+        
             with worker_state["lock"]:
                 hist = worker_state["history"]
                 hist.append(detections)
@@ -900,7 +912,7 @@ with tab_live:
             return frame
 
     webrtc_streamer(
-        key=f"stream-{model_choice}",
+        key="stream-ecociudad-hybrid",
         mode=WebRtcMode.SENDRECV,
         rtc_configuration=RTC_CONFIG,
         video_frame_callback=video_frame_callback,
@@ -936,6 +948,7 @@ with tab_live:
         translations=RTC_TRANSLATIONS,
     )
 
+
     st.caption("💡 ¿Tu dispositivo o red móvil restringe WebRTC? En la pestaña **'Subir Archivo / Foto'** podés usar la cámara instantánea sin streaming continuo.")
 
 with tab_photo:
@@ -948,6 +961,7 @@ with tab_photo:
             ["📁 Subir Archivo", "📸 Tomar Foto Instantánea"],
             horizontal=True
         )
+    
         img_pil = None
         if input_mode == "📁 Subir Archivo":
             uploaded = st.file_uploader(
@@ -955,6 +969,8 @@ with tab_photo:
                 type=["jpg", "jpeg", "png", "webp", "bmp"],
                 help="Soporta fotos con 1 o múltiples residuos simultáneos"
             )
+
+        
             if uploaded:
                 img_pil = Image.open(uploaded).convert("RGB")
         else:
@@ -986,11 +1002,13 @@ with tab_photo:
 
             frame_bgr = np.array(img_pil)[:, :, ::-1].copy()
             annotated_bgr, detections = run_inference(
-                model,
+                models,
                 frame_bgr,
                 conf_threshold=CONF_THRESH,
                 filter_people=FILTER_PEOPLE,
                 feedback_store=fb_store,
+
+        
             )
             annotated_rgb = annotated_bgr[:, :, ::-1].copy()
             st.image(annotated_rgb, width="stretch")
@@ -1035,8 +1053,10 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                             predicted_cls="unknown",
                             correct_cls=mat_key,
                             is_held_in_center=False,
-                            store=st.session_state.feedback_store
+                            store=st.session_state.feedback_store,
                         )
+            
+                    
                         st.session_state.feedback_store = new_store
                         st.session_state.confirmed_override = {
                             "clase": mat_key,
@@ -1156,6 +1176,8 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                             placeholder="Ej: Av. Rivadavia 5100, Santa Fe y Callao, Caballito...",
                             key="input_dir_tab_photo"
                         )
+            
+                    
                         if dir_rapida != st.session_state.get("user_addr_input", ""):
                             st.session_state.user_addr_input = dir_rapida
 
@@ -1183,6 +1205,8 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                             solo_abiertos_ahora=False,
                             clase_material=clase_det_principal,
                         )
+            
+                    
                         for pt_c in candidatos_compatibles:
                             dlat = np.radians(pt_c["lat"] - lat_origen)
                             dlon = np.radians(pt_c["lon"] - lon_origen)
@@ -1199,6 +1223,8 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                                 orig_lon=lon_origen if tiene_origen_exacto else None,
                                 orig_direccion=dir_rapida if not tiene_origen_exacto else None,
                             )
+                
+                        
                             st.markdown(f"""
 <div class="nearby-center-item" style="flex-direction:column; align-items:stretch; gap:8px;">
   <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1256,8 +1282,11 @@ Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda
                                 predicted_cls=pred_cls,
                                 correct_cls=mat_key,
                                 is_held_in_center=is_held_val,
-                                store=st.session_state.feedback_store
+                                store=st.session_state.feedback_store,
+
                             )
+            
+                        
                             st.session_state.feedback_store = new_store
                             st.session_state.confirmed_override = {
                                 "clase": mat_key,
@@ -1347,6 +1376,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             help="Usa el geocodificador oficial USIG del GCBA para localizar tu cuadra sin requerir app móvil nativa.",
             key="input_dir_tab_pv"
         )
+    
         if direccion_usuario != st.session_state.get("user_addr_input", ""):
             st.session_state.user_addr_input = direccion_usuario
 
@@ -1359,6 +1389,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             help="Filtra solo los centros que reciben ese material (ej: las Cooperativas reciben secos pero NO reciben pilas, aceite ni RAEE).",
             key="filtro_material_pv"
         )
+    
 
     # Geocodificar dirección ingresada si existe
     addr_geocoded = None
@@ -1380,12 +1411,14 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             format_func=lambda c: "CABA (Todas las Comunas)" if c == "Todas" else COMUNAS_BARRIOS.get(c, str(c)),
             key="filtro_comuna_pv"
         )
+    
     with col_f2:
         tipo_capa = st.radio(
             "Capa en mapa:",
             ["🌐 Todos (46)", "📍 Puntos Verdes (32)", "🏭 Centros Verdes (14)"],
             horizontal=True
         )
+    
     with col_f3:
         st.write("")
         st.write("")
@@ -1394,6 +1427,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             value=False,
             help="Filtra los puntos que están abiertos en este momento según el día y reloj de tu dispositivo."
         )
+    
 
     df_pv = pd.DataFrame(PUNTOS_VERDES_LIST)
     df_cv = pd.DataFrame(CENTROS_VERDES_LIST)
@@ -1457,6 +1491,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         solo_abiertos_ahora=solo_abiertos_ahora,
         clase_material=filtro_material,
     )
+
     if not todos_puntos:
         todos_puntos = get_puntos_habilitados(incluir_centros=True, solo_abiertos_ahora=False, clase_material=filtro_material)
 
@@ -1501,6 +1536,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             orig_lon=ref_lon if (has_user_gps or addr_geocoded is not None) else None,
             orig_direccion=direccion_usuario if (direccion_usuario.strip() and addr_geocoded is None) else None,
         )
+    
 
         status_pill_bg = "#ECFDF5" if p["is_abierto"] else "#FEF2F2"
         status_pill_color = "#065F46" if p["is_abierto"] else "#991B1B"
@@ -1537,6 +1573,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         auto_highlight=True,
     )
 
+
     map_layers = [layer_points]
 
     if has_user_gps or addr_geocoded is not None:
@@ -1562,7 +1599,8 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             get_radius=320,
             pickable=True,
             auto_highlight=True,
-        )
+    )
+    
         map_layers.append(layer_user)
 
     view_state = pdk.ViewState(
@@ -1571,6 +1609,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         zoom=13.2 if (has_user_gps or addr_geocoded is not None) else (12.0 if filtro_comuna != "Todas" else 11.2),
         pitch=0,
     )
+
 
     st.pydeck_chart(
         pdk.Deck(
@@ -1596,6 +1635,8 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             map_style="light"
         )
     )
+    
+
 
     st.markdown(f"#### 📋 Detalle ({len(df_filtrado_mapa)} ubicaciones compatibles)")
     for _, row in df_filtrado_mapa.iterrows():
@@ -1610,6 +1651,7 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             orig_lon=ref_lon if (has_user_gps or addr_geocoded is not None) else None,
             orig_direccion=direccion_usuario if (direccion_usuario.strip() and addr_geocoded is None) else None,
         )
+    
 
         with st.expander(f"{tipo}: {row['nombre']} — Comuna {row['comuna']}{admin} ({badge_texto})"):
             st.markdown(f"""
