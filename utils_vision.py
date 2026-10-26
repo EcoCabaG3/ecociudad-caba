@@ -108,6 +108,9 @@ WASTE_MAP = {
     "jar":                  {"label": "Pote / Frasco Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
     "plastic jar":          {"label": "Pote / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
     "cosmetic jar":         {"label": "Pote / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
+    "cream jar":            {"label": "Pote / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
+    "plastic tub":          {"label": "Pote / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
+    "plastic pot":          {"label": "Pote / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
     "round plastic container": {"label": "Pote / Envase Plastico", "emoji": "🧴", "tipo": "Reciclable Seco (Verde)", "color": (46, 204, 113), "accion": "Limpio y seco. Apto Contenedor Verde.", "es_especial": False},
     "plastic lid":          {"label": "Tapa / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico reciclable limpio y seco. Apto Contenedor Verde.", "es_especial": False},
     "plastic cap":          {"label": "Tapa / Envase Plastico","emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico reciclable limpio y seco. Apto Contenedor Verde.", "es_especial": False},
@@ -221,10 +224,15 @@ _KEYWORD_FALLBACK = [
     ("pencil",         "pencil"),
     ("thermos",        "thermos"),
     ("cosmetic jar",   "cosmetic jar"),
+    ("cream jar",      "cream jar"),
+    ("plastic jar",    "plastic jar"),
+    ("plastic tub",    "plastic tub"),
+    ("plastic pot",    "plastic pot"),
     ("plastic lid",    "plastic lid"),
     ("plastic cap",    "plastic cap"),
-    ("pot",            "jar"),
-    ("jar",            "jar"),
+    ("pot",            "plastic pot"),
+    ("jar",            "plastic jar"),
+    ("tub",            "plastic tub"),
     ("container",      "container"),
     ("cup",            "cup"),
     ("bottle",         "bottle"),
@@ -264,11 +272,11 @@ _KEYWORD_FALLBACK = [
 # Clases que NUNCA deben marcarse como residuo (Personas, anteojos, ropa puesta, partes del cuerpo, mobiliario y fondo)
 IGNORED_CLASSES = {
     "person", "human face", "face", "head", "man", "woman", "human", "body", "arm", "hand", "finger",
-    "eyeglasses", "glasses", "spectacles", "sunglasses", "shirt", "sweater", "jacket", "hoodie",
-    "chair", "couch", "bed", "dining table", "tv", "laptop-screen",
-    "refrigerator", "microwave", "oven", "sink", "door", "window", "cabinet", "wardrobe", "cupboard", "closet",
+    "eyeglasses", "glasses", "spectacles", "sunglasses", "shirt", "sweater", "jacket", "hoodie", "t-shirt", "coat",
+    "chair", "couch", "sofa", "bed", "dining table", "table", "tv", "laptop-screen",
+    "refrigerator", "microwave", "oven", "sink", "door", "window", "cabinet", "wardrobe", "cupboard", "closet", "drawer",
     "toilet", "clock", "vase", "potted plant",
-    "wall", "floor", "ceiling", "shelf", "room", "indoor"
+    "wall", "floor", "ceiling", "shelf", "room", "indoor", "wooden door", "furniture", "wood furniture"
 }
 
 DEFAULT_WASTE = {
@@ -317,14 +325,18 @@ def load_cascade_engine() -> dict:
         # Vocabulario abierto de YOLO-World incluyendo personas/anteojos para filtrar fondos automaticamente
         try:
             detector.set_classes([
-                # Personas, Rostros y Anteojos (para deteccion y descarte de fondos/caras)
+                # Personas, Rostros, Anteojos y Ropa puesta (descarte de usuario y vestimenta)
                 "person", "human face", "eyeglasses", "glasses", "hand",
+                "hoodie", "shirt", "sweater", "jacket",
+                # Mobiliario de fondo (descarte de puertas, placares y muebles)
+                "wardrobe", "closet", "cabinet", "wooden door", "door", "shelf", "furniture",
                 # Vidrio y Vasos
                 "drinking glass", "glass cup", "glass bottle", "glass", "wine glass",
-                # Vasos, Potes Redondos, Tapas y Envases Plasticos
+                # Potes Redondos, Envases Cosmeticos, Tapas y Envases Plasticos
+                "round plastic container", "cosmetic jar", "cream jar", "plastic jar", "plastic tub", "plastic pot",
+                "plastic container", "plastic lid", "plastic cap", "jar", "pot",
+                # Vasos
                 "cup", "plastic cup", "disposable cup",
-                "round plastic container", "cosmetic jar", "plastic jar", "plastic container",
-                "plastic lid", "plastic cap", "jar", "pot",
                 # Encendedores
                 "lighter", "cigarette lighter", "plastic lighter",
                 # Botellas y Envases
@@ -435,6 +447,24 @@ def get_waste_info(class_name: str) -> dict | None:
 
     # Si no es un residuo reconocido, retornar None (NO forzar cajas falsas)
     return None
+
+
+def is_frame_blank_or_dark(frame_bgr: np.ndarray, min_mean: float = 24.0, min_std: float = 7.0) -> bool:
+    """
+    Determina si el fotograma esta negro, ocluido (tapa/shutter de la camara cerrado),
+    o carece de informacion visual util.
+    Calculo ultrarrapido (<0.2 ms) mediante submuestreo de pixeles.
+    """
+    if frame_bgr is None or frame_bgr.size == 0:
+        return True
+    sample = frame_bgr[::8, ::8]
+    mean_val = float(np.mean(sample))
+    if mean_val < min_mean or mean_val > 248.0:
+        return True
+    std_val = float(np.std(sample))
+    if std_val < min_std:
+        return True
+    return False
 
 
 def analyze_spatial_and_hand_context(frame_bgr: np.ndarray, bbox: tuple[int, int, int, int]) -> tuple[bool, float, bool]:
@@ -558,6 +588,9 @@ def _detect_bounding_boxes(
     imgsz: int = 384,
 ) -> list[dict]:
     """Ejecuta detector de objetos primario con cajas delimitadoras (YOLO-World v2 / YOLOv8-det)."""
+    if is_frame_blank_or_dark(frame_bgr):
+        return []
+
     h_img, w_img = frame_bgr.shape[:2]
     frame_area = w_img * h_img
 
@@ -567,12 +600,15 @@ def _detect_bounding_boxes(
     if getattr(results, "boxes", None) is None or len(results.boxes) == 0:
         return []
 
-    # Paso 1: Registrar ubicaciones de rostros y anteojos para bloquear falsos positivos encima de la cara
+    # Paso 1: Registrar ubicaciones de rostros, anteojos y personas para bloquear falsos positivos
     face_or_glasses_boxes = []
+    has_person_or_clothes = False
     for box in results.boxes:
         c_name = detector.names[int(box.cls[0])].lower()
         if any(k in c_name for k in ("face", "head", "eyeglasses", "glasses", "spectacles")):
             face_or_glasses_boxes.append(tuple(map(int, box.xyxy[0].tolist())))
+        if any(k in c_name for k in ("person", "face", "man", "woman", "head", "hoodie", "shirt", "sweater", "jacket")):
+            has_person_or_clothes = True
 
     raw_detections = []
     for box in results.boxes:
@@ -580,10 +616,14 @@ def _detect_bounding_boxes(
         cls_name = detector.names[cls_id].lower()
         conf     = float(box.conf[0])
 
-        # Filtro inmediato de personas, rostros, anteojos, muebles o paredes
+        # Filtro inmediato de personas, rostros, anteojos, muebles, ropa puesta o paredes
         if filter_people and (
             cls_name in IGNORED_CLASSES
-            or any(ign in cls_name for ign in ("person", "face", "man", "woman", "head", "glasses", "hand"))
+            or any(ign in cls_name for ign in (
+                "person", "face", "man", "woman", "head", "glasses", "hand",
+                "hoodie", "shirt", "sweater", "jacket", "coat",
+                "wardrobe", "closet", "cabinet", "door", "shelf", "furniture", "table"
+            ))
         ):
             continue
 
@@ -595,6 +635,25 @@ def _detect_bounding_boxes(
         x1, y1, x2, y2 = bbox
         bw, bh = max(1, x2 - x1), max(1, y2 - y1)
         area_ratio = (bw * bh) / float(frame_area)
+
+        # Desambiguacion para vasos y potes:
+        # Si detecta 'cup', pero el objeto tiene aspecto achatado o cuadrado (bw >= bh * 0.82),
+        # se trata de un pote, tarro o recipiente plastico (como potes de crema o recipientes redondos).
+        if cls_name in ("cup", "disposable cup", "plastic cup"):
+            if bw >= bh * 0.82:
+                cls_name = "plastic jar"
+
+        is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
+
+        # Filtro estricto para carton: en ambientes domesticos, puertas de placares, mesas y muebles
+        # de madera suelen generar falsos positivos de carton con baja confianza (< 0.46) cuando estan de fondo.
+        if cls_name in ("cardboard", "carton", "cardboard box", "corrugated cardboard", "flat cardboard"):
+            # Si no hay mano sosteniendolo y la confianza es menor a 48%, descartar
+            if not hand_detected and conf < 0.48:
+                continue
+            # Si la caja tiene dimensiones de puerta o lateral de mueble (alta y vertical sin mano)
+            if not hand_detected and (bh > bw * 1.50 or area_ratio > 0.35):
+                continue
 
         # Reglas anti-sesgo estrictas para 'cell phone':
         # Evita que caras con anteojos (44%), encendedores (56%) o vapers/potes (64%) se marquen como Celular
@@ -628,16 +687,10 @@ def _detect_bounding_boxes(
         if (bw > 0.90 * w_img and bh > 0.90 * h_img) or (area_ratio > 0.85 and conf < 0.40):
             continue
 
-        # Filtro para ruido de carton de muy baja confianza en el fondo
-        if cls_name in ("cardboard", "carton") and conf < 0.32:
-            continue
-
         # Obtener informacion del residuo (si no es un residuo valido o es clase ignorada, se descarta)
         info = get_waste_info(cls_name)
         if info is None:
             continue
-
-        is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
         effective_conf, boost_applied = calculate_boosted_confidence(
             cls_name=cls_name,
@@ -704,6 +757,9 @@ def _classify_focal_center(
     feedback_store: dict | None = None,
 ) -> list[dict]:
     """Ejecuta clasificador secundario focalizado en el centro de la escena (YOLOv8s-cls)."""
+    if is_frame_blank_or_dark(frame_bgr):
+        return []
+
     h_img, w_img = frame_bgr.shape[:2]
     frame_area = w_img * h_img
 
@@ -726,6 +782,8 @@ def _classify_focal_center(
     bbox = (x1, y1, x2, y2)
 
     center_crop = frame_bgr[y1:y2, x1:x2]
+    if center_crop.size == 0 or is_frame_blank_or_dark(center_crop, min_mean=28.0, min_std=8.0):
+        return []
     p_crop = p_full.copy()
     skin_ratio = 0.0
 
@@ -761,19 +819,25 @@ def _classify_focal_center(
     # Priorizar fuertemente el recorte del objeto (75%) sobre el fondo general (25%)
     p_combined = 0.25 * p_full + 0.75 * p_crop
 
-    # Si hay una persona/mano en escena (skin_ratio > 0.04), bloquear el falso positivo de la ropa puesta ('clothes'/'shoes')
-    if skin_ratio > 0.04:
-        for idx_c, name_c in classifier.names.items():
-            if name_c.lower() in ("clothes", "shoes"):
-                p_combined[int(idx_c)] *= 0.05
+    # Analizar si hay una mano sosteniendo el objeto focal en el centro
+    _, _, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
-    total_p = float(np.sum(p_combined))
-    if total_p > 0:
-        p_combined = p_combined / total_p
+    # Bloqueo estricto de ropa puesta o calzado del usuario ('clothes' / 'shoes'):
+    # Un usuario sentado o parado frente a la camara NUNCA debe ser diagnosticado como residuo textil.
+    # Solo permitimos clasificar 'clothes' o 'shoes' si hay una mano evidente sosteniendolo de forma aislada
+    # y la confianza supera un umbral riguroso (>= 0.70).
+    for idx_c, name_c in classifier.names.items():
+        if name_c.lower() in ("clothes", "shoes"):
+            if (not hand_detected) or (skin_ratio > 0.02):
+                p_combined[int(idx_c)] = 0.0
 
     top1_id = int(np.argmax(p_combined))
     top1_conf = float(p_combined[top1_id])
     raw_top1_cls = classifier.names[top1_id].lower()
+
+    # Si la clase dominante es ropa/calzado y no hay mano sosteniendola aislada, descartar
+    if raw_top1_cls in ("clothes", "shoes") and (not hand_detected or top1_conf < 0.70):
+        return []
 
     best_cls = raw_top1_cls
     best_raw_conf = top1_conf
@@ -842,6 +906,9 @@ def run_inference(
                 al clasificador focalizado (YOLOv8s-cls) en el mismo ciclo, sin recargar la app ni reiniciar la camara.
     - Modo Simple (YOLO): Ejecuta el modelo individual proporcionado.
     """
+    if frame_bgr is None or frame_bgr.size == 0 or is_frame_blank_or_dark(frame_bgr):
+        return frame_bgr, []
+
     if isinstance(model, dict):
         detector = model.get("detector")
         classifier = model.get("classifier")
