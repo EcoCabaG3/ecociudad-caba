@@ -76,6 +76,7 @@ from utils_vision import (
     run_inference,
     draw_detections,
     get_waste_info,
+    is_frame_blank_or_dark,
     trim_memory,
     get_process_rss_bytes,
     MAX_MEMORY_BYTES
@@ -384,20 +385,20 @@ html, body, [class*="css"], .stApp {
 
 /* ─── Marco Técnico del Visor de Cámara ─── */
 .scanner-viewport-box {
-    background-color: var(--color-tech-bg);
-    border: 1px solid var(--color-border-dark);
+    background: linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 50%, #F8FAFC 100%);
+    border: 1px solid rgba(16, 185, 129, 0.28);
     border-radius: 12px;
     padding: 10px 14px;
     margin: 0 auto 8px auto;
     max-width: 820px !important;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.08);
 }
 .scanner-header-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
 }
 .scanner-status-indicator {
     display: inline-flex;
@@ -755,7 +756,7 @@ with st.sidebar:
 
 
 
-    CONF_THRESH = st.slider("Sensibilidad / Umbral de confianza:", min_value=0.15, max_value=0.70, value=0.25, step=0.05)
+    CONF_THRESH = st.slider("Sensibilidad / Umbral de confianza:", min_value=0.15, max_value=0.70, value=0.30, step=0.05)
     FILTER_PEOPLE = True
     st.markdown("---")
     st.markdown("""
@@ -794,17 +795,17 @@ tab_live, tab_photo, tab_pv = st.tabs([
 # ═══════════════════════════════════════════════════════════════════════════
 with tab_live:
     st.markdown("""
-<div class="scanner-viewport-box">
-  <div class="scanner-header-bar">
-    <div class="scanner-status-indicator">
+<div style="max-width:820px; margin:0.35rem auto 0.85rem auto;"><div style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:0.55rem 1.25rem; background:linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 50%, #F8FAFC 100%); border:1px solid rgba(16, 185, 129, 0.28); border-radius:9999px; box-shadow:0 2px 10px rgba(16, 185, 129, 0.08);">
+  <div style="display:flex; align-items:center; gap:8px;">
+
       <span class="live-dot-pulse"></span>
-      <span>CÁMARA IA EN VIVO</span>
+      <span style="font-size:0.76rem; font-weight:800; color:#065F46; letter-spacing:0.04em;">ESCÁNER EN VIVO</span>
     </div>
-    <div class="scanner-hint-text">
+  <div style="display:flex; align-items:center; gap:6px; font-size:0.80rem; color:#047857; font-weight:500;">
       <span class="material-symbols-outlined" style="font-size:16px; color:#10B981;">center_focus_strong</span>
-      Centrá el residuo · Detección activa
+    <span>Centrá el residuo en el visor para identificarlo</span>
     </div>
-    <span style="font-size:0.72rem; color:#64748B; font-weight:600;">CABA · 30 FPS</span>
+  <div style="font-size:0.70rem; font-weight:700; color:#059669; background:#FFFFFF; border:1px solid #D1FAE5; padding:2px 10px; border-radius:9999px; letter-spacing:0.03em;">CABA · EN LÍNEA</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -888,6 +889,11 @@ with tab_live:
             if not should_infer and not current_dets:
                 return frame
             img_bgr = frame.to_ndarray(format="bgr24")
+            if is_frame_blank_or_dark(img_bgr):
+                with worker_state["lock"]:
+                    worker_state["cached_detections"] = []
+                    worker_state["history"].clear()
+                return frame
             now = time.time()
 
             # Disparar inferencia en segundo plano cada 0.35s sin demorar el video en tiempo real
