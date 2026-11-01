@@ -747,11 +747,27 @@ if (_APP_DIR / "models" / "best.pt").exists() or Path("models/best.pt").exists()
 if not available_models:
     available_models["yolov8n"] = "⚡ YOLOv8 Nano"
 
+# ─── Créditos Académicos (IFTS N° 11 · Proyecto Integrador) ─────────────────
+# Ordenados alfabéticamente por Apellido
+INTEGRANTE_ALUMNOS = [
+    "Aguilar, María Sol",
+    "Lopez, Lucas Horacio",
+    "Lupi, Natalio",
+    "Saavedra, Marco Antonio",
+]
+DOCENTE_PROFESORA = "Valeria Feito"
+
 with st.sidebar:
+    # Logo institucional GCBA (arriba del logo de EcoCiudad)
+    st.markdown('<div style="text-align:center; padding: 0.35rem 0 0.25rem;"><div style="display:inline-flex; align-items:center; gap:9px; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px; padding:7px 14px; box-shadow:0 1px 3px rgba(15,23,42,0.05);"><div style="background:#FFD300; color:#1D1D1B; font-weight:900; font-size:1.1rem; letter-spacing:-0.04em; padding:3px 7px; border-radius:5px; line-height:1;">BA</div><div style="text-align:left; line-height:1.12;"><div style="font-size:0.78rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">Buenos Aires Ciudad</div><div style="font-size:0.60rem; font-weight:600; color:#64748B; text-transform:uppercase; letter-spacing:0.04em;">Gobierno de la Ciudad</div></div></div></div>', unsafe_allow_html=True)
     if LOGO_B64:
-        st.markdown(f'<div style="text-align:center; padding: 0.5rem 0 1rem;"><img src="{LOGO_B64}" style="max-height:48px; width:auto;"></div>', unsafe_allow_html=True)
-    st.markdown("### ⚙️ Motor de Visión IA")
-    st.markdown('<div style="background:#F0FDF4; border:1px solid #86EFAC; border-radius:10px; padding:0.75rem 0.85rem; margin-bottom:0.9rem;"><div style="display:flex; align-items:center; gap:6px; font-weight:700; color:#15803D; font-size:0.86rem;"><span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span>Pipeline Híbrido en Cascada</div><div style="font-size:0.74rem; color:#166534; margin-top:4px; line-height:1.35;"><b>Modo Autónomo Inteligente:</b><br>• <b>Paso 1:</b> Detector multi-objeto con recuadros (YOLO-World v2).<br>• <b>Paso 2:</b> Respaldo automático a clasificador focalizado (YOLOv8s-cls) si no hay detección directa.</div><div style="margin-top:6px; font-size:0.70rem; color:#047857; font-weight:600; display:flex; align-items:center; gap:4px;"><span style="display:inline-block; width:7px; height:7px; background:#10B981; border-radius:50%;"></span>Sin reinicios · Transición fluida en vivo</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center; padding: 0.35rem 0 0.85rem;"><img src="{LOGO_B64}" style="max-height:48px; width:auto;"></div>', unsafe_allow_html=True)
+    st.markdown("### 🎓 Equipo del Proyecto")
+    _alumnos_items = "".join(
+        f'<div style="display:flex; align-items:center; gap:6px; padding:2px 0; color:#1E293B; font-size:0.76rem; font-weight:600;"><span style="display:inline-block; width:6px; height:6px; background:#10B981; border-radius:50%; flex-shrink:0;"></span><span>{alumno}</span></div>'
+        for alumno in INTEGRANTE_ALUMNOS
+    )
+    st.markdown(f'<div style="background:#F0FDF4; border:1px solid #86EFAC; border-radius:10px; padding:0.75rem 0.85rem; margin-bottom:0.9rem;"><div style="display:flex; align-items:center; gap:6px; font-weight:700; color:#15803D; font-size:0.84rem; margin-bottom:6px;"><span class="material-symbols-outlined" style="font-size:18px;">groups</span>Integrantes (IFTS N° 11)</div><div style="line-height:1.4;">{_alumnos_items}</div><div style="margin-top:8px; padding-top:7px; border-top:1px dashed #BBF7D0; font-size:0.75rem; color:#065F46; display:flex; align-items:center; gap:5px;"><span class="material-symbols-outlined" style="font-size:16px; color:#059669;">school</span><span><b>Profesora:</b> {DOCENTE_PROFESORA}</span></div></div>', unsafe_allow_html=True)
 
     CONF_THRESH = st.slider("Sensibilidad / Umbral de confianza:", min_value=0.15, max_value=0.70, value=0.30, step=0.05)
     FILTER_PEOPLE = True
