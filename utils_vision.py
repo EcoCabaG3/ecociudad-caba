@@ -277,7 +277,7 @@ IGNORED_CLASSES = {
     "eyeglasses", "glasses", "spectacles", "sunglasses", "shirt", "sweater", "jacket", "hoodie", "t-shirt", "coat",
     "chair", "couch", "sofa", "bed", "dining table", "table", "tv", "laptop-screen",
     "refrigerator", "microwave", "oven", "sink", "door", "window", "cabinet", "wardrobe", "cupboard", "closet", "drawer",
-    "toilet", "clock", "vase", "potted plant",
+    "toilet", "clock", "vase", "potted plant", "mirror", "picture frame", "wooden frame", "painting", "poster",
     "wall", "floor", "ceiling", "shelf", "room", "indoor", "wooden door", "furniture", "wood furniture"
 }
 
@@ -330,8 +330,9 @@ def load_cascade_engine() -> dict:
                 # Personas, Rostros, Anteojos y Ropa puesta (descarte de usuario y vestimenta)
                 "person", "human face", "eyeglasses", "glasses", "hand",
                 "hoodie", "shirt", "sweater", "jacket",
-                # Mobiliario de fondo (descarte de puertas, placares y muebles)
+                # Mobiliario de fondo (descarte de puertas, placares, espejos, cuadros y muebles)
                 "wardrobe", "closet", "cabinet", "wooden door", "door", "shelf", "furniture",
+                "mirror", "picture frame", "wooden frame", "window", "wall",
                 # Vidrio y Vasos
                 "drinking glass", "glass cup", "glass bottle", "glass", "wine glass",
                 # Potes Redondos, Envases Cosmeticos, Tapas y Envases Plasticos
@@ -618,13 +619,14 @@ def _detect_bounding_boxes(
         cls_name = detector.names[cls_id].lower()
         conf     = float(box.conf[0])
 
-        # Filtro inmediato de personas, rostros, anteojos, muebles, ropa puesta o paredes
+        # Filtro inmediato de personas, rostros, anteojos, muebles, espejos, ropa puesta o paredes
         if filter_people and (
             cls_name in IGNORED_CLASSES
             or any(ign in cls_name for ign in (
                 "person", "face", "man", "woman", "head", "glasses", "hand",
                 "hoodie", "shirt", "sweater", "jacket", "coat",
-                "wardrobe", "closet", "cabinet", "door", "shelf", "furniture", "table"
+                "wardrobe", "closet", "cabinet", "door", "shelf", "furniture", "table",
+                "mirror", "picture frame", "wooden frame", "window", "wall"
             ))
         ):
             continue
@@ -647,14 +649,24 @@ def _detect_bounding_boxes(
 
         is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
-        # Filtro estricto para carton: en ambientes domesticos, puertas de placares, mesas y muebles
-        # de madera suelen generar falsos positivos de carton con baja confianza (< 0.46) cuando estan de fondo.
-        if cls_name in ("cardboard", "carton", "cardboard box", "corrugated cardboard", "flat cardboard"):
-            # Si no hay mano sosteniendolo y la confianza es menor a 48%, descartar
-            if not hand_detected and conf < 0.48:
+        # Filtro estricto para carton y papel: en ambientes domesticos, puertas de placares, espejos,
+        # marcos de madera, paredes y muebles de fondo suelen generar falsos positivos de carton/papel cuando no se sostienen en mano.
+        if cls_name in ("cardboard", "carton", "cardboard box", "corrugated cardboard", "flat cardboard", "paper", "newspaper", "magazine"):
+            # Si la caja se solapa con la cara/cabeza del usuario pero es grande (tipico de un espejo o pared detras de la persona), descartar
+            overlaps_user_head = False
+            for fb in face_or_glasses_boxes:
+                ix1, iy1 = max(x1, fb[0]), max(y1, fb[1])
+                ix2, iy2 = min(x2, fb[2]), min(y2, fb[3])
+                if ix2 > ix1 and iy2 > iy1:
+                    overlaps_user_head = True
+                    break
+            if overlaps_user_head and area_ratio > 0.12:
                 continue
-            # Si la caja tiene dimensiones de puerta o lateral de mueble (alta y vertical sin mano)
-            if not hand_detected and (bh > bw * 1.50 or area_ratio > 0.35):
+            # Si no hay mano sosteniendolo y la confianza es menor a 62%, descartar
+            if not hand_detected and conf < 0.62:
+                continue
+            # Si la caja tiene dimensiones de puerta, espejo o lateral de mueble sin mano sosteniendolo
+            if not hand_detected and (bh > bw * 1.45 or area_ratio > 0.22):
                 continue
 
         # Reglas anti-sesgo estrictas para 'cell phone':
@@ -824,13 +836,17 @@ def _classify_focal_center(
     # Analizar si hay una mano sosteniendo el objeto focal en el centro
     _, _, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
-    # Bloqueo estricto de ropa puesta o calzado del usuario ('clothes' / 'shoes'):
-    # Un usuario sentado o parado frente a la camara NUNCA debe ser diagnosticado como residuo textil.
-    # Solo permitimos clasificar 'clothes' o 'shoes' si hay una mano evidente sosteniendolo de forma aislada
-    # y la confianza supera un umbral riguroso (>= 0.70).
+    # Bloqueo estricto de ropa puesta, calzado o fondos domesticos sin objeto en mano:
+    # Un usuario frente a la camara o un espejo/pared de fondo NUNCA debe ser diagnosticado como residuo
+    # si no hay una mano sosteniendo un objeto o una confianza muy alta.
     for idx_c, name_c in classifier.names.items():
-        if name_c.lower() in ("clothes", "shoes"):
+        c_low = name_c.lower()
+        if c_low in ("clothes", "shoes"):
             if (not hand_detected) or (skin_ratio > 0.02):
+                p_combined[int(idx_c)] = 0.0
+        elif c_low in ("paper", "cardboard"):
+            # Evita que espejos, marcos de madera o paredes blancas de fondo se clasifiquen como Papel/Carton
+            if not hand_detected:
                 p_combined[int(idx_c)] = 0.0
 
     top1_id = int(np.argmax(p_combined))
