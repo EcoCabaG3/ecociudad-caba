@@ -92,6 +92,7 @@ WASTE_MAP = {
     "cardboard box":        {"label": "Carton",              "emoji": "📦", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Mantener seco, doblar o desarmar para optimizar espacio.", "es_especial": False},
     "corrugated cardboard": {"label": "Carton",              "emoji": "📦", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Mantener seco, doblar o desarmar para optimizar espacio.", "es_especial": False},
     "flat cardboard":       {"label": "Carton",              "emoji": "📦", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Mantener seco, doblar o desarmar para optimizar espacio.", "es_especial": False},
+    "tetra pak":            {"label": "Tetra Pak / Multicapa","emoji": "🧃", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Enjuagar, escurrir y aplastar. Apto Contenedor Verde.", "es_especial": False},
     "paper":                {"label": "Papel",               "emoji": "📄", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Mantener limpio y seco.", "es_especial": False},
     "book":                 {"label": "Papel / Carton",       "emoji": "📦", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Mantener seco y desarmar la caja.", "es_especial": False},
     
@@ -245,6 +246,7 @@ _KEYWORD_FALLBACK = [
     ("metal",          "metal"),
     ("plastic",        "plastic"),
     ("cardboard",      "cardboard"),
+    ("tetra pak",      "tetra pak"),
     ("carton",         "cardboard"),
     ("corrugated",     "cardboard"),
     ("paper",          "paper"),
@@ -710,7 +712,7 @@ def _detect_bounding_boxes(
             "confianza":         effective_conf,
             "confianza_raw":     conf,
             "boost_applied":     boost_applied,
-            "is_held_in_center": False,
+            "is_held_in_center": is_held_in_center,
             "center_score":      center_score,
             "hand_detected":     hand_detected,
             "bbox":              bbox,
@@ -853,6 +855,8 @@ def _classify_focal_center(
     for cid in top5_ids:
         c_name = classifier.names[int(cid)].lower()
         c_raw = float(p_combined[int(cid)])
+        if c_raw <= 0.0:
+            continue
         c_eff, c_boost = calculate_boosted_confidence(
             cls_name=c_name,
             raw_conf=c_raw,
