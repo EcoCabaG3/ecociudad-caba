@@ -758,10 +758,10 @@ INTEGRANTE_ALUMNOS = [
 DOCENTE_PROFESORA = "Valeria Feito"
 
 with st.sidebar:
-    # Logo institucional GCBA (arriba del logo de EcoCiudad)
-    st.markdown('<div style="text-align:center; padding: 0.35rem 0 0.25rem;"><div style="display:inline-flex; align-items:center; gap:9px; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px; padding:7px 14px; box-shadow:0 1px 3px rgba(15,23,42,0.05);"><div style="background:#FFD300; color:#1D1D1B; font-weight:900; font-size:1.1rem; letter-spacing:-0.04em; padding:3px 7px; border-radius:5px; line-height:1;">BA</div><div style="text-align:left; line-height:1.12;"><div style="font-size:0.78rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">Buenos Aires Ciudad</div><div style="font-size:0.60rem; font-weight:600; color:#64748B; text-transform:uppercase; letter-spacing:0.04em;">Gobierno de la Ciudad</div></div></div></div>', unsafe_allow_html=True)
     if LOGO_B64:
-        st.markdown(f'<div style="text-align:center; padding: 0.35rem 0 0.85rem;"><img src="{LOGO_B64}" style="max-height:48px; width:auto;"></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center; padding: 0.5rem 0 0.35rem;"><img src="{LOGO_B64}" style="max-height:48px; width:auto;"></div>', unsafe_allow_html=True)
+    # Logo institucional GCBA (debajo del logo de EcoCiudad)
+    st.markdown('<div style="text-align:center; padding: 0.2rem 0 0.85rem;"><div style="display:inline-flex; align-items:center; gap:9px; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px; padding:6px 13px; box-shadow:0 1px 3px rgba(15,23,42,0.05);"><div style="background:#FFD300; color:#1D1D1B; font-weight:900; font-size:1.05rem; letter-spacing:-0.04em; padding:3px 7px; border-radius:5px; line-height:1;">BA</div><div style="text-align:left; line-height:1.12;"><div style="font-size:0.76rem; font-weight:800; color:#0F172A; letter-spacing:-0.01em;">Buenos Aires Ciudad</div><div style="font-size:0.58rem; font-weight:600; color:#64748B; text-transform:uppercase; letter-spacing:0.04em;">Gobierno de la Ciudad</div></div></div></div>', unsafe_allow_html=True)
     st.markdown("### 🎓 Equipo del Proyecto")
     _alumnos_items = "".join(
         f'<div style="display:flex; align-items:center; gap:6px; padding:2px 0; color:#1E293B; font-size:0.76rem; font-weight:600;"><span style="display:inline-block; width:6px; height:6px; background:#10B981; border-radius:50%; flex-shrink:0;"></span><span>{alumno}</span></div>'
@@ -1215,6 +1215,8 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                                 orig_lat=lat_origen if tiene_origen_exacto else None,
                                 orig_lon=lon_origen if tiene_origen_exacto else None,
                                 orig_direccion=dir_rapida if not tiene_origen_exacto else None,
+                                dest_direccion=pt_top.get("direccion"),
+                                dest_nombre=pt_top.get("nombre"),
                             )
                             st.markdown(f"""
 <div class="nearby-center-item" style="flex-direction:column; align-items:stretch; gap:8px;">
@@ -1517,6 +1519,8 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             orig_lat=ref_lat if (has_user_gps or addr_geocoded is not None) else None,
             orig_lon=ref_lon if (has_user_gps or addr_geocoded is not None) else None,
             orig_direccion=direccion_usuario if (direccion_usuario.strip() and addr_geocoded is None) else None,
+            dest_direccion=p.get("direccion"),
+            dest_nombre=p.get("nombre"),
         )
 
         status_pill_bg = "#ECFDF5" if p["is_abierto"] else "#FEF2F2"
@@ -1626,6 +1630,8 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             orig_lat=ref_lat if (has_user_gps or addr_geocoded is not None) else None,
             orig_lon=ref_lon if (has_user_gps or addr_geocoded is not None) else None,
             orig_direccion=direccion_usuario if (direccion_usuario.strip() and addr_geocoded is None) else None,
+            dest_direccion=row.get("direccion"),
+            dest_nombre=row.get("nombre"),
         )
 
         with st.expander(f"{tipo}: {row['nombre']} — Comuna {row['comuna']}{admin} ({badge_texto})"):
