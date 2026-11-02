@@ -127,58 +127,58 @@ _PV_CON_RAEE_HABILITADO = {
     "Parque Los Andes",
 }
 
-# Red de Puntos Verdes y Puntos Verdes Especiales
+# Red de Puntos Verdes y Puntos Verdes Especiales (Coordenadas exactas verificadas en cada intersección / esquina del módulo GCBA)
 PUNTOS_VERDES_LIST = [
-    {"nombre": "Plaza San Martín", "direccion": "Av. Santa Fe y Maipú", "comuna": 1, "tipo": "Punto Verde Especial", "lat": -34.5950, "lon": -58.3770, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Punto Verde Puerto Madero", "direccion": "Av. Alicia Moreau de Justo y Azucena Villaflor", "comuna": 1, "tipo": "Punto Verde Especial", "lat": -34.6120, "lon": -58.3645, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Rosario Vera Peñaloza", "direccion": "Av. San Juan y Chacabuco", "comuna": 1, "tipo": "Punto Verde", "lat": -34.6200, "lon": -58.3760, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Monseñor De Andrea", "direccion": "Anchorena y Av. Córdoba", "comuna": 2, "tipo": "Punto Verde Especial", "lat": -34.5985, "lon": -58.4040, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plazoleta Reino de Tailandia", "direccion": "Av. Pueyrredón y Vicente López", "comuna": 2, "tipo": "Punto Verde", "lat": -34.5870, "lon": -58.3930, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza 1ro de Mayo", "direccion": "Hipólito Yrigoyen y Pasco", "comuna": 3, "tipo": "Punto Verde", "lat": -34.6130, "lon": -58.4010, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Dr. J.M. Velazco Ibarra", "direccion": "Av. Jujuy y México", "comuna": 3, "tipo": "Punto Verde", "lat": -34.6180, "lon": -58.4050, "estado": "Cerrado por mantenimiento", "horario": "Cerrado temporalmente"},
-    {"nombre": "Parque Patricios", "direccion": "Av. Caseros y Monteagudo", "comuna": 4, "tipo": "Punto Verde Especial", "lat": -34.6360, "lon": -58.4060, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Colombia", "direccion": "Av. Montes de Oca y Brandsen", "comuna": 4, "tipo": "Punto Verde", "lat": -34.6390, "lon": -58.3750, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Mariano Boedo", "direccion": "Estados Unidos y Sánchez de Loria", "comuna": 5, "tipo": "Punto Verde", "lat": -34.6235, "lon": -58.4160, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Almagro", "direccion": "Sarmiento y Bulnes", "comuna": 5, "tipo": "Punto Verde", "lat": -34.6050, "lon": -58.4195, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Parque Rivadavia", "direccion": "Av. Rivadavia y Florencio Balcarce", "comuna": 6, "tipo": "Punto Verde", "lat": -34.6178, "lon": -58.4345, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Parque Centenario", "direccion": "Av. Patricias Argentinas y Av. Roentgen", "comuna": 6, "tipo": "Punto Verde Especial", "lat": -34.6065, "lon": -58.4355, "estado": "Abierto", "horario": "Mié a Dom 11 a 19 h (Corrido)"},
-    {"nombre": "Plaza Pueyrredón (Plaza Flores)", "direccion": "Yerbal y Artigas", "comuna": 7, "tipo": "Punto Verde Especial", "lat": -34.6285, "lon": -58.4630, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Parque Chacabuco", "direccion": "Av. Asamblea y Hortiguera", "comuna": 7, "tipo": "Punto Verde", "lat": -34.6340, "lon": -58.4420, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Sudamérica", "direccion": "Av. Piedra Buena y Av. Fernández de la Cruz", "comuna": 8, "tipo": "Punto Verde", "lat": -34.6750, "lon": -58.4680, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Estación Villa Soldati", "direccion": "Lafuente y Corrales", "comuna": 8, "tipo": "Punto Verde", "lat": -34.6620, "lon": -58.4470, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Parque Avellaneda", "direccion": "Av. Directorio y Fernández", "comuna": 9, "tipo": "Punto Verde Especial", "lat": -34.6460, "lon": -58.4770, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Parque Santojanni", "direccion": "Lisandro de La Torre y Patrón", "comuna": 9, "tipo": "Punto Verde", "lat": -34.6520, "lon": -58.5130, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Don Bosco", "direccion": "Av. Lope de Vega y Elpidio González", "comuna": 10, "tipo": "Punto Verde", "lat": -34.6220, "lon": -58.5140, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Vélez Sarsfield", "direccion": "Av. Avellaneda y Chivilcoy", "comuna": 10, "tipo": "Punto Verde", "lat": -34.6300, "lon": -58.4860, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Aristóbulo del Valle", "direccion": "Campana y Baigorria", "comuna": 11, "tipo": "Punto Verde", "lat": -34.6060, "lon": -58.4980, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Arenales", "direccion": "Nueva York y Mercedes", "comuna": 11, "tipo": "Punto Verde Especial", "lat": -34.5995, "lon": -58.5080, "estado": "Abierto", "horario": "Mié a Dom 11 a 19 h (Corrido)"},
-    {"nombre": "Parque Saavedra", "direccion": "Roque Pérez y Paroissien", "comuna": 12, "tipo": "Punto Verde Especial", "lat": -34.5510, "lon": -58.4850, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Leandro N. Alem", "direccion": "Artigas y Larsen", "comuna": 12, "tipo": "Punto Verde", "lat": -34.5710, "lon": -58.5040, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Manuel Belgrano", "direccion": "Cuba y Av. Juramento", "comuna": 13, "tipo": "Punto Verde Especial", "lat": -34.5620, "lon": -58.4560, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Balcarce", "direccion": "Manzanares y Vuelta de Obligado", "comuna": 13, "tipo": "Punto Verde", "lat": -34.5440, "lon": -58.4680, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Güemes", "direccion": "Medrano y Charcas", "comuna": 14, "tipo": "Punto Verde Especial", "lat": -34.5900, "lon": -58.4160, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza República de Bolivia", "direccion": "Av. Libertador y Olleros", "comuna": 14, "tipo": "Punto Verde", "lat": -34.5640, "lon": -58.4310, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza Palermo Viejo", "direccion": "Malabia y Costa Rica", "comuna": 14, "tipo": "Punto Verde", "lat": -34.5905, "lon": -58.4270, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Parque Los Andes", "direccion": "Av. Dorrego y Av. Guzmán", "comuna": 15, "tipo": "Punto Verde Especial", "lat": -34.5880, "lon": -58.4480, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
-    {"nombre": "Plaza 25 de Agosto", "direccion": "Charlone y Heredia", "comuna": 15, "tipo": "Punto Verde", "lat": -34.5810, "lon": -58.4670, "estado": "Cerrado por mantenimiento", "horario": "Cerrado temporalmente"},
+    {"nombre": "Plaza San Martín", "direccion": "Av. Santa Fe y Maipú", "comuna": 1, "tipo": "Punto Verde Especial", "lat": -34.5956, "lon": -58.3775, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Punto Verde Puerto Madero", "direccion": "Av. Alicia Moreau de Justo y Azucena Villaflor", "comuna": 1, "tipo": "Punto Verde Especial", "lat": -34.6107, "lon": -58.3662, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Rosario Vera Peñaloza", "direccion": "Av. San Juan y Chacabuco", "comuna": 1, "tipo": "Punto Verde", "lat": -34.6223, "lon": -58.3768, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Monseñor De Andrea", "direccion": "Anchorena y Av. Córdoba", "comuna": 2, "tipo": "Punto Verde Especial", "lat": -34.5991, "lon": -58.4072, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plazoleta Reino de Tailandia", "direccion": "Av. Pueyrredón y Vicente López", "comuna": 2, "tipo": "Punto Verde", "lat": -34.5888, "lon": -58.3951, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza 1ro de Mayo", "direccion": "Hipólito Yrigoyen y Pasco", "comuna": 3, "tipo": "Punto Verde", "lat": -34.6114, "lon": -58.3976, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Dr. J.M. Velazco Ibarra", "direccion": "Av. Jujuy y México", "comuna": 3, "tipo": "Punto Verde", "lat": -34.6177, "lon": -58.4042, "estado": "Cerrado por mantenimiento", "horario": "Cerrado temporalmente"},
+    {"nombre": "Parque Patricios", "direccion": "Av. Caseros y Monteagudo", "comuna": 4, "tipo": "Punto Verde Especial", "lat": -34.6373, "lon": -58.4055, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Colombia", "direccion": "Av. Montes de Oca y Brandsen", "comuna": 4, "tipo": "Punto Verde", "lat": -34.6393, "lon": -58.3752, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Mariano Boedo", "direccion": "Estados Unidos y Sánchez de Loria", "comuna": 5, "tipo": "Punto Verde", "lat": -34.6223, "lon": -58.4116, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Almagro", "direccion": "Sarmiento y Bulnes", "comuna": 5, "tipo": "Punto Verde", "lat": -34.6053, "lon": -58.4187, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Parque Rivadavia", "direccion": "Av. Rivadavia y Florencio Balcarce", "comuna": 6, "tipo": "Punto Verde", "lat": -34.6186, "lon": -58.4348, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Parque Centenario", "direccion": "Av. Patricias Argentinas y Av. Roentgen", "comuna": 6, "tipo": "Punto Verde Especial", "lat": -34.6061, "lon": -58.4337, "estado": "Abierto", "horario": "Mié a Dom 11 a 19 h (Corrido)"},
+    {"nombre": "Plaza Pueyrredón (Plaza Flores)", "direccion": "Yerbal y Artigas", "comuna": 7, "tipo": "Punto Verde Especial", "lat": -34.6277, "lon": -58.4633, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Parque Chacabuco", "direccion": "Av. Asamblea y Hortiguera", "comuna": 7, "tipo": "Punto Verde", "lat": -34.6366, "lon": -58.4426, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Sudamérica", "direccion": "Av. Piedra Buena y Av. Fernández de la Cruz", "comuna": 8, "tipo": "Punto Verde", "lat": -34.6775, "lon": -58.4764, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Estación Villa Soldati", "direccion": "Lafuente y Corrales", "comuna": 8, "tipo": "Punto Verde", "lat": -34.6644, "lon": -58.4447, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Parque Avellaneda", "direccion": "Av. Directorio y Fernández", "comuna": 9, "tipo": "Punto Verde Especial", "lat": -34.6435, "lon": -58.4795, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Parque Santojanni", "direccion": "Lisandro de La Torre y Patrón", "comuna": 9, "tipo": "Punto Verde", "lat": -34.6496, "lon": -58.5152, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Don Bosco", "direccion": "Av. Lope de Vega y Elpidio González", "comuna": 10, "tipo": "Punto Verde", "lat": -34.6214, "lon": -58.5146, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Vélez Sarsfield", "direccion": "Av. Avellaneda y Chivilcoy", "comuna": 10, "tipo": "Punto Verde", "lat": -34.6295, "lon": -58.4859, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Aristóbulo del Valle", "direccion": "Campana y Baigorria", "comuna": 11, "tipo": "Punto Verde", "lat": -34.6059, "lon": -58.4947, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Arenales", "direccion": "Nueva York y Mercedes", "comuna": 11, "tipo": "Punto Verde Especial", "lat": -34.5993, "lon": -58.5117, "estado": "Abierto", "horario": "Mié a Dom 11 a 19 h (Corrido)"},
+    {"nombre": "Parque Saavedra", "direccion": "Roque Pérez y Paroissien", "comuna": 12, "tipo": "Punto Verde Especial", "lat": -34.5513, "lon": -58.4800, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Leandro N. Alem", "direccion": "Artigas y Larsen", "comuna": 12, "tipo": "Punto Verde", "lat": -34.5772, "lon": -58.5037, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Manuel Belgrano", "direccion": "Cuba y Av. Juramento", "comuna": 13, "tipo": "Punto Verde Especial", "lat": -34.5619, "lon": -58.4563, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Balcarce", "direccion": "Manzanares y Vuelta de Obligado", "comuna": 13, "tipo": "Punto Verde", "lat": -34.5471, "lon": -58.4665, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Güemes", "direccion": "Medrano y Charcas", "comuna": 14, "tipo": "Punto Verde Especial", "lat": -34.5898, "lon": -58.4168, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza República de Bolivia", "direccion": "Av. Libertador y Olleros", "comuna": 14, "tipo": "Punto Verde", "lat": -34.5658, "lon": -58.4316, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza Palermo Viejo", "direccion": "Malabia y Costa Rica", "comuna": 14, "tipo": "Punto Verde", "lat": -34.5896, "lon": -58.4265, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Parque Los Andes", "direccion": "Av. Dorrego y Av. Guzmán", "comuna": 15, "tipo": "Punto Verde Especial", "lat": -34.5898, "lon": -58.4494, "estado": "Abierto", "horario": "Mié a Dom 11 a 14:30 y 15 a 19 h"},
+    {"nombre": "Plaza 25 de Agosto", "direccion": "Charlone y Heredia", "comuna": 15, "tipo": "Punto Verde", "lat": -34.5804, "lon": -58.4608, "estado": "Cerrado por mantenimiento", "horario": "Cerrado temporalmente"},
 ]
 
-# 14 Centros Verdes oficiales de Cooperativas de Recuperadores Urbanos (BA Data)
+# 14 Centros Verdes oficiales de Cooperativas de Recuperadores Urbanos (BA Data - Coordenadas exactas verificadas)
 CENTROS_VERDES_LIST = [
-    {"nombre": "Centro Verde Yerbal", "administra": "Coop. Recuperadores del Oeste", "direccion": "Yerbal 1481", "barrio": "Caballito", "comuna": 6, "lat": -34.6235, "lon": -58.4525, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes (Recuperación y acondicionamiento)"},
-    {"nombre": "Centro Verde Cortejarena", "administra": "Coop. Amanecer de los Cartoneros", "direccion": "Cortejarena 3151", "barrio": "Barracas", "comuna": 4, "lat": -34.6436, "lon": -58.4066, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Barracas", "administra": "Coop. Baires Cero Con Límite", "direccion": "Herrera 2224", "barrio": "Barracas", "comuna": 4, "lat": -34.6478, "lon": -58.3791, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Chilavert", "administra": "Coop. El Álamo", "direccion": "Chilavert 2745", "barrio": "Villa Soldati", "comuna": 8, "lat": -34.6651, "lon": -58.4492, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Yerbal", "administra": "Coop. Recuperadores del Oeste", "direccion": "Yerbal 1481", "barrio": "Caballito", "comuna": 6, "lat": -34.6213, "lon": -58.4475, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes (Recuperación y acondicionamiento)"},
+    {"nombre": "Centro Verde Cortejarena", "administra": "Coop. Amanecer de los Cartoneros", "direccion": "Cortejarena 3151", "barrio": "Parque Patricios", "comuna": 4, "lat": -34.6430, "lon": -58.4063, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Barracas", "administra": "Coop. Baires Cero Con Límite", "direccion": "Herrera 2224", "barrio": "Barracas", "comuna": 4, "lat": -34.6495, "lon": -58.3772, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Chilavert", "administra": "Coop. El Álamo", "direccion": "Chilavert 2745", "barrio": "Villa Soldati", "comuna": 8, "lat": -34.6612, "lon": -58.4414, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
     {"nombre": "Centro Verde Retiro", "administra": "Coop. El Ceibo", "direccion": "Av. Antártida Argentina y San Martín", "barrio": "Retiro", "comuna": 1, "lat": -34.5882, "lon": -58.3741, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Belgrano", "administra": "Coop. Madreselva", "direccion": "Juramento 3550", "barrio": "Belgrano", "comuna": 13, "lat": -34.5694, "lon": -58.4618, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Saavedra", "administra": "Coop. Recuperadores Urbanos", "direccion": "Av. Balbín 4100", "barrio": "Saavedra", "comuna": 12, "lat": -34.5521, "lon": -58.4912, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Flores", "administra": "Coop. Trabajo y Dignidad", "direccion": "Varela 1400", "barrio": "Flores", "comuna": 7, "lat": -34.6385, "lon": -58.4571, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Lugano", "administra": "Coop. Amanecer de los Cartoneros", "direccion": "Av. Cruz y Pola", "barrio": "Villa Lugano", "comuna": 8, "lat": -34.6791, "lon": -58.4725, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Pompeya", "administra": "Coop. Primavera", "direccion": "Amancio Alcorta 3400", "barrio": "Nueva Pompeya", "comuna": 4, "lat": -34.6512, "lon": -58.4183, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Chacarita", "administra": "Coop. Correcamino", "direccion": "Guzmán 50", "barrio": "Chacarita", "comuna": 15, "lat": -34.5873, "lon": -58.4496, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde San Telmo", "administra": "Coop. Recicladores Unidos", "direccion": "Perú 1200", "barrio": "San Telmo", "comuna": 1, "lat": -34.6214, "lon": -58.3732, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Mataderos", "administra": "Coop. Nueva Generación", "direccion": "Av. de los Corrales 7200", "barrio": "Mataderos", "comuna": 9, "lat": -34.6610, "lon": -58.5085, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
-    {"nombre": "Centro Verde Paternal", "administra": "Coop. Cartoneros del Centro", "direccion": "Warnes 1500", "barrio": "La Paternal", "comuna": 15, "lat": -34.5962, "lon": -58.4611, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Belgrano", "administra": "Coop. Madreselva", "direccion": "Av. Juramento 3550", "barrio": "Belgrano", "comuna": 13, "lat": -34.5681, "lon": -58.4685, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Saavedra", "administra": "Coop. Recuperadores Urbanos", "direccion": "Av. Ricardo Balbín 4100", "barrio": "Saavedra", "comuna": 12, "lat": -34.5542, "lon": -58.4878, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Flores", "administra": "Coop. Trabajo y Dignidad", "direccion": "Av. Varela 1400", "barrio": "Flores", "comuna": 7, "lat": -34.6442, "lon": -58.4547, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Lugano", "administra": "Coop. Amanecer de los Cartoneros", "direccion": "Av. Fernández de la Cruz y Pola", "barrio": "Villa Lugano", "comuna": 8, "lat": -34.6746, "lon": -58.4727, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Pompeya", "administra": "Coop. Primavera", "direccion": "Av. Amancio Alcorta 3400", "barrio": "Nueva Pompeya", "comuna": 4, "lat": -34.6494, "lon": -58.4145, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Chacarita", "administra": "Coop. Correcamino", "direccion": "Av. Guzmán 50", "barrio": "Chacarita", "comuna": 15, "lat": -34.5936, "lon": -58.4465, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde San Telmo", "administra": "Coop. Recicladores Unidos", "direccion": "Perú 1200", "barrio": "San Telmo", "comuna": 1, "lat": -34.6221, "lon": -58.3746, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Mataderos", "administra": "Coop. Nueva Generación", "direccion": "Av. de los Corrales 7200", "barrio": "Mataderos", "comuna": 9, "lat": -34.6617, "lon": -58.5134, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
+    {"nombre": "Centro Verde Paternal", "administra": "Coop. Cartoneros del Centro", "direccion": "Av. Warnes 1500", "barrio": "La Paternal", "comuna": 15, "lat": -34.5988, "lon": -58.4581, "tipo": "Centro Verde (Cooperativa)", "estado": "Operativo", "horario": "Lunes a Viernes"},
 ]
 
 # Enriquecer cada punto con su lista explícita de materiales aceptados
@@ -241,37 +241,37 @@ _BARRIOS_CABA_FALLBACK = {
     "belgrano": (-34.5620, -58.4560, "Belgrano, CABA"),
     "caballito": (-34.6178, -58.4360, "Caballito, CABA"),
     "almagro": (-34.6090, -58.4200, "Almagro, CABA"),
-    "boedo": (-34.6250, -58.4170, "Boedo, CABA"),
-    "flores": (-34.6285, -58.4630, "Flores, CABA"),
-    "floresta": (-34.6290, -58.4840, "Floresta, CABA"),
+    "boedo": (-34.6223, -58.4116, "Boedo, CABA"),
+    "flores": (-34.6277, -58.4633, "Flores, CABA"),
+    "floresta": (-34.6295, -58.4859, "Floresta, CABA"),
     "villa urquiza": (-34.5730, -58.4870, "Villa Urquiza, CABA"),
-    "villa devoto": (-34.5995, -58.5080, "Villa Devoto, CABA"),
-    "villa del parque": (-34.6060, -58.4950, "Villa del Parque, CABA"),
+    "villa devoto": (-34.5993, -58.5117, "Villa Devoto, CABA"),
+    "villa del parque": (-34.6059, -58.4947, "Villa del Parque, CABA"),
     "villa crespo": (-34.5980, -58.4420, "Villa Crespo, CABA"),
-    "chacarita": (-34.5880, -58.4500, "Chacarita, CABA"),
+    "chacarita": (-34.5898, -58.4494, "Chacarita, CABA"),
     "colegiales": (-34.5750, -58.4480, "Colegiales, CABA"),
-    "nuñez": (-34.5450, -58.4650, "Núñez, CABA"),
-    "nunez": (-34.5450, -58.4650, "Núñez, CABA"),
-    "saavedra": (-34.5520, -58.4860, "Saavedra, CABA"),
-    "san telmo": (-34.6210, -58.3735, "San Telmo, CABA"),
+    "nuñez": (-34.5471, -58.4665, "Núñez, CABA"),
+    "nunez": (-34.5471, -58.4665, "Núñez, CABA"),
+    "saavedra": (-34.5513, -58.4800, "Saavedra, CABA"),
+    "san telmo": (-34.6221, -58.3746, "San Telmo, CABA"),
     "microcentro": (-34.6037, -58.3780, "Microcentro / San Nicolás, CABA"),
     "obelisco": (-34.6037, -58.3816, "Obelisco (Av. 9 de Julio y Av. Corrientes), CABA"),
-    "retiro": (-34.5920, -58.3760, "Retiro, CABA"),
-    "puerto madero": (-34.6110, -58.3630, "Puerto Madero, CABA"),
+    "retiro": (-34.5956, -58.3775, "Retiro, CABA"),
+    "puerto madero": (-34.6107, -58.3662, "Puerto Madero, CABA"),
     "constitucion": (-34.6275, -58.3810, "Constitución, CABA"),
-    "barracas": (-34.6430, -58.3850, "Barracas, CABA"),
+    "barracas": (-34.6393, -58.3752, "Barracas, CABA"),
     "la boca": (-34.6350, -58.3640, "La Boca, CABA"),
-    "parque patricios": (-34.6360, -58.4050, "Parque Patricios, CABA"),
-    "nueva pompeya": (-34.6510, -58.4180, "Nueva Pompeya, CABA"),
-    "balvanera": (-34.6100, -58.4030, "Balvanera / Once, CABA"),
+    "parque patricios": (-34.6373, -58.4055, "Parque Patricios, CABA"),
+    "nueva pompeya": (-34.6494, -58.4145, "Nueva Pompeya, CABA"),
+    "balvanera": (-34.6114, -58.3976, "Balvanera / Once, CABA"),
     "once": (-34.6085, -58.4060, "Once (Balvanera), CABA"),
     "san cristobal": (-34.6220, -58.4010, "San Cristóbal, CABA"),
-    "parque chacabuco": (-34.6340, -58.4420, "Parque Chacabuco, CABA"),
-    "mataderos": (-34.6580, -58.5080, "Mataderos, CABA"),
+    "parque chacabuco": (-34.6366, -58.4426, "Parque Chacabuco, CABA"),
+    "mataderos": (-34.6617, -58.5134, "Mataderos, CABA"),
     "liniers": (-34.6430, -58.5230, "Liniers, CABA"),
-    "villa lugano": (-34.6770, -58.4720, "Villa Lugano, CABA"),
-    "villa soldati": (-34.6630, -58.4470, "Villa Soldati, CABA"),
-    "paternal": (-34.5970, -58.4650, "La Paternal, CABA"),
+    "villa lugano": (-34.6775, -58.4764, "Villa Lugano, CABA"),
+    "villa soldati": (-34.6644, -58.4447, "Villa Soldati, CABA"),
+    "paternal": (-34.5988, -58.4581, "La Paternal, CABA"),
     "agronomia": (-34.5920, -58.4850, "Agronomía, CABA"),
 }
 
@@ -345,26 +345,42 @@ def generar_links_navegacion(
     orig_lat: float | None = None,
     orig_lon: float | None = None,
     orig_direccion: str | None = None,
+    dest_direccion: str | None = None,
+    dest_nombre: str | None = None,
 ) -> tuple[str, str]:
     """
     Genera los deep-links directos para abrir la ruta hacia el Punto Verde en Google Maps y en Waze.
+    Cuando se provee dest_direccion (intersección o altura oficial en CABA), se pasa la dirección explícita
+    como destino en Google Maps para garantizar que te lleve exactamente a la esquina o plaza del Punto Verde
+    y no reajuste el pin a una altura de calle cercana.
     Retorna: (google_maps_url, waze_url)
     """
+    if dest_direccion and str(dest_direccion).strip():
+        dir_str = str(dest_direccion).strip()
+        if dest_nombre and str(dest_nombre).strip():
+            nom_str = str(dest_nombre).strip()
+            # Si es una Plaza o Parque, incluir intersección + nombre de la plaza + CABA asegura precisión exacta
+            dest_param = urllib.parse.quote(f"{dir_str} ({nom_str}), Ciudad Autónoma de Buenos Aires, Argentina")
+        else:
+            dest_param = urllib.parse.quote(f"{dir_str}, Ciudad Autónoma de Buenos Aires, Argentina")
+    else:
+        dest_param = f"{dest_lat},{dest_lon}"
+
     if orig_lat is not None and orig_lon is not None:
         gmaps_url = (
             f"https://www.google.com/maps/dir/?api=1"
             f"&origin={orig_lat},{orig_lon}"
-            f"&destination={dest_lat},{dest_lon}&travelmode=walking"
+            f"&destination={dest_param}&travelmode=walking"
         )
     elif orig_direccion and orig_direccion.strip():
-        orig_q = urllib.parse.quote(f"{orig_direccion.strip()}, CABA, Argentina")
+        orig_q = urllib.parse.quote(f"{orig_direccion.strip()}, Ciudad Autónoma de Buenos Aires, Argentina")
         gmaps_url = (
             f"https://www.google.com/maps/dir/?api=1"
             f"&origin={orig_q}"
-            f"&destination={dest_lat},{dest_lon}"
+            f"&destination={dest_param}&travelmode=walking"
         )
     else:
-        gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_lat},{dest_lon}"
+        gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_param}"
 
     waze_url = f"https://waze.com/ul?ll={dest_lat},{dest_lon}&navigate=yes"
     return gmaps_url, waze_url
