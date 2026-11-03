@@ -123,7 +123,9 @@ WASTE_MAP = {
     "plastic lighter":      {"label": "Encendedor (Plastico / Metal)", "emoji": "🔥", "tipo": "Basura Comun / Descarga Segura", "color": (60, 76, 231), "accion": "Verificar que este 100% sin gas antes de descartar. Por mezcla de gas, metal y plastico no va a campana verde.", "es_especial": False},
     "capsule":              {"label": "Capsula de Cafe",      "emoji": "☕", "tipo": "Reciclable / Punto Verde",  "color": (46, 204, 113),  "accion": "Vacia y limpia. En Punto Verde se convierte en madera plastica.", "es_especial": False},
 
-    # Utiles de Escritura y Plasticos Rigidos (Contenedor Verde)
+    # Utiles de Escritura, Medicion y Plasticos Rigidos (Mapeados a Plastico / Contenedor Verde)
+    "ruler":                {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico reciclable. Apto Contenedor Verde.", "es_especial": False},
+    "plastic ruler":        {"label": "Plastico / Envases",   "emoji": "🧴", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico reciclable. Apto Contenedor Verde.", "es_especial": False},
     "pen":                  {"label": "Lapicera / Plastico",   "emoji": "🖊️", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico rigido. Retirar mina de tinta si es posible.", "es_especial": False},
     "plastic pen":          {"label": "Lapicera / Plastico",   "emoji": "🖊️", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico rigido. Retirar mina de tinta si es posible.", "es_especial": False},
     "ballpoint pen":        {"label": "Lapicera / Plastico",   "emoji": "🖊️", "tipo": "Reciclable Seco (Verde)",  "color": (46, 204, 113),  "accion": "Plastico rigido. Retirar mina de tinta si es posible.", "es_especial": False},
@@ -154,6 +156,10 @@ WASTE_MAP = {
     "vape pen":             {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
     "disposable vape":      {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
     "vape pod":             {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
+    "vape mod":             {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
+    "vape bar":             {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
+    "vape device":          {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
+    "box mod":              {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
     "electronic cigarette": {"label": "Cigarrillo Electronico / Vaper", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Llevar a Punto Verde Movil o Fijo.", "es_especial": True},
     "e-cigarette":          {"label": "Cigarrillo Electronico / Vaper", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Llevar a Punto Verde Movil o Fijo.", "es_especial": True},
     "e-waste":              {"label": "RAEE / Electronico",   "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Llevar a Punto Verde Movil o Fijo (hasta 10 aparatos por persona).", "es_especial": True},
@@ -215,7 +221,11 @@ WASTE_MAP = {
 
 # Mapa de subcadenas keyword → clave base en WASTE_MAP (fallback por substring)
 _KEYWORD_FALLBACK = [
+    ("ruler",          "plastic"),
     ("vape",           "vape"),
+    ("box mod",        "vape"),
+    ("e-cigarette",    "electronic cigarette"),
+    ("electronic cigarette", "electronic cigarette"),
     ("lighter",        "lighter"),
     ("drinking glass", "drinking glass"),
     ("glass cup",      "glass cup"),
@@ -345,8 +355,8 @@ def load_cascade_engine() -> dict:
                 # Botellas y Envases
                 "plastic bottle", "bottle", "thermos",
                 "lotion bottle", "cream bottle", "shampoo bottle", "cosmetic bottle",
-                # Utiles y Objetos Plasticos / Oficina
-                "pen", "plastic pen", "ballpoint pen", "marker", "pencil",
+                # Utiles y Objetos Plasticos / Oficina / Medicion
+                "plastic ruler", "ruler", "pen", "plastic pen", "ballpoint pen", "marker", "pencil",
                 # Aceite
                 "cooking oil bottle", "oil bottle", "cooking oil", "used cooking oil",
                 # Metales y Latas
@@ -354,7 +364,7 @@ def load_cascade_engine() -> dict:
                 # Papel y Carton
                 "cardboard box", "cardboard", "corrugated cardboard", "paper",
                 # Vapers, Baterias y RAEE (con prompt especifico de smartphone para evitar sesgo en objetos de mano)
-                "vape", "disposable vape", "vape pod", "vape pen", "electronic cigarette",
+                "vape", "disposable vape", "vape mod", "box mod", "vape pod", "vape pen", "vape bar", "vape device", "electronic cigarette",
                 "battery", "batteries", "aa battery", "alkaline battery",
                 "smartphone touchscreen", "laptop", "mouse", "keyboard",
                 # Discos
@@ -417,6 +427,9 @@ def get_waste_info(class_name: str) -> dict | None:
     # Mapeo unicamente de sinonimos estrictos de celulares
     if norm in ("smartphone", "smartphone touchscreen", "mobile phone", "telephone"):
         norm = "cell phone"
+    # Mapeo directo a la categoria estandar de Plastico
+    if norm in ("ruler", "plastic ruler"):
+        norm = "plastic"
     norm_spaced = norm.replace("-", " ").replace("_", " ").strip()
 
     # Verificacion estricta de clases ignoradas (personas, rostros, muebles, fondo)
@@ -634,6 +647,10 @@ def _detect_bounding_boxes(
         # Mapeo estricto de celulares (solo sinonimos reales de telefono)
         if cls_name in ("smartphone", "smartphone touchscreen", "mobile phone", "telephone"):
             cls_name = "cell phone"
+
+        # Mapeo a categoria estandar de Plastico para evitar crear clases adicionales
+        if cls_name in ("ruler", "plastic ruler"):
+            cls_name = "plastic"
 
         bbox = tuple(map(int, box.xyxy[0].tolist()))
         x1, y1, x2, y2 = bbox
