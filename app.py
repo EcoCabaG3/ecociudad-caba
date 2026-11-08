@@ -1032,20 +1032,21 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
 </div>
 """, unsafe_allow_html=True)
                 quick_materials = [
-                    ("plastic",    "🧴 Plástico / Pote"),
+                    ("plastic",    "🧴 Plástico"),
                     ("cardboard",  "📦 Cartón"),
                     ("paper",      "📄 Papel"),
                     ("glass",      "🍾 Vidrio"),
                     ("metal",      "🥫 Metal / Lata"),
                     ("battery",    "🔋 Pila / Batería"),
-                    ("biological", "🍂 Orgánico / Restos"),
+                    ("biological", "🍂 Orgánico"),
                     ("clothes",    "👕 Ropa / Textil"),
                     ("cell phone", "📱 Celular / RAEE"),
-                    ("oil",        "🍳 Aceite Usado (AVU)"),
+                    ("oil",        "🍳 Aceite (AVU)"),
+                    ("trash",      "🗑️ Basura (Negro)"),
                 ]
-                cols_btn = st.columns(5)
+                cols_btn = st.columns(4)
                 for idx, (mat_key, mat_label) in enumerate(quick_materials):
-                    col_target = cols_btn[idx % 5]
+                    col_target = cols_btn[idx % 4]
                     if col_target.button(mat_label, key=f"btn_fb_empty_{mat_key}", width="stretch"):
                         info = get_waste_info(mat_key)
                         new_store = add_correction(
@@ -1251,22 +1252,23 @@ Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda
 """, unsafe_allow_html=True)
 
                     quick_materials = [
-                        ("plastic",    "🧴 Plástico / Pote"),
+                        ("plastic",    "🧴 Plástico"),
                         ("cardboard",  "📦 Cartón"),
                         ("paper",      "📄 Papel"),
                         ("glass",      "🍾 Vidrio"),
                         ("metal",      "🥫 Metal / Lata"),
                         ("battery",    "🔋 Pila / Batería"),
-                        ("biological", "🍂 Orgánico / Restos"),
+                        ("biological", "🍂 Orgánico"),
                         ("clothes",    "👕 Ropa / Textil"),
                         ("cell phone", "📱 Celular / RAEE"),
-                        ("oil",        "🍳 Aceite Usado (AVU)"),
+                        ("oil",        "🍳 Aceite (AVU)"),
+                        ("trash",      "🗑️ Basura (Negro)"),
                     ]
 
                     st.write("")
-                    cols_btn = st.columns(5)
+                    cols_btn = st.columns(4)
                     for idx, (mat_key, mat_label) in enumerate(quick_materials):
-                        col_target = cols_btn[idx % 5]
+                        col_target = cols_btn[idx % 4]
                         if col_target.button(mat_label, key=f"btn_fb_{mat_key}", width="stretch"):
                             info = get_waste_info(mat_key)
                             pred_cls = detections[0]["clase"] if detections else "unknown"
@@ -1553,7 +1555,12 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         data=df_map_render,
         get_position=["lon", "lat"],
         get_color="color",
-        get_radius=220,
+        get_radius=80,
+        radius_min_pixels=6,
+        radius_max_pixels=11,
+        stroked=True,
+        get_line_color=[255, 255, 255, 220],
+        line_width_min_pixels=1.5,
         pickable=True,
         auto_highlight=True,
     )
@@ -1580,7 +1587,12 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
             data=df_user_pin,
             get_position=["lon", "lat"],
             get_color="color",
-            get_radius=320,
+            get_radius=100,
+            radius_min_pixels=7,
+            radius_max_pixels=13,
+            stroked=True,
+            get_line_color=[255, 255, 255, 240],
+            line_width_min_pixels=2,
             pickable=True,
             auto_highlight=True,
         )
