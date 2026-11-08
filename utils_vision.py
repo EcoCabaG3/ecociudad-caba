@@ -148,8 +148,17 @@ WASTE_MAP = {
     "metal":                {"label": "Metal / Aluminio",     "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar latas para ahorrar espacio.", "es_especial": False},
     "can":                  {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
     "aluminum can":         {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
+    "soda can":             {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
+    "beer can":             {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
+    "beverage can":         {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
+    "drink can":            {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
     "tin can":              {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
     "steel can":            {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
+    "spray can":            {"label": "Lata / Aerosol",       "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Lata de metal o aluminio vacia y despresurizada. Apto Contenedor Verde.", "es_especial": False},
+    "aerosol can":          {"label": "Lata / Aerosol",       "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Lata de metal o aluminio vacia y despresurizada. Apto Contenedor Verde.", "es_especial": False},
+    "aerosol":              {"label": "Lata / Aerosol",       "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Lata de metal o aluminio vacia y despresurizada. Apto Contenedor Verde.", "es_especial": False},
+    "air freshener spray":  {"label": "Lata / Aerosol",       "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Lata de metal o aluminio vacia y despresurizada. Apto Contenedor Verde.", "es_especial": False},
+    "deodorant spray":      {"label": "Lata / Aerosol",       "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Lata de metal o aluminio vacia y despresurizada. Apto Contenedor Verde.", "es_especial": False},
     
     # RESIDUOS ESPECIALES GCBA (OBLIGATORIO PUNTO VERDE) — Color BGR Rojo (60, 76, 231)
     "vape":                 {"label": "Vaper / Cigarrillo Electronico", "emoji": "🔋", "tipo": "Residuo Especial (Punto Verde)", "color": (60, 76, 231), "accion": "Contiene bateria de litio y circuitos. Llevar a Punto Verde.", "es_especial": True},
@@ -254,6 +263,9 @@ _KEYWORD_FALLBACK = [
     ("tin",            "tin can"),
     ("steel",          "steel can"),
     ("metal",          "metal"),
+    ("spray",          "spray can"),
+    ("aerosol",        "aerosol can"),
+    ("freshener",      "air freshener spray"),
     ("plastic",        "plastic"),
     ("cardboard",      "cardboard"),
     ("tetra pak",      "tetra pak"),
@@ -359,8 +371,9 @@ def load_cascade_engine() -> dict:
                 "plastic ruler", "ruler", "pen", "plastic pen", "ballpoint pen", "marker", "pencil",
                 # Aceite
                 "cooking oil bottle", "oil bottle", "cooking oil", "used cooking oil",
-                # Metales y Latas
-                "aluminum can", "tin can", "can",
+                # Metales, Latas y Aerosoles
+                "aluminum can", "soda can", "beer can", "beverage can", "drink can", "tin can", "can",
+                "spray can", "aerosol can", "aerosol", "air freshener spray", "deodorant spray",
                 # Papel y Carton
                 "cardboard box", "cardboard", "corrugated cardboard", "paper",
                 # Vapers, Baterias y RAEE (con prompt especifico de smartphone para evitar sesgo en objetos de mano)
