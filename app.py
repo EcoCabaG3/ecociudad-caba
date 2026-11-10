@@ -9,25 +9,27 @@ import threading
 import warnings
 from pathlib import Path
 
+import io
 import tempfile
+import hashlib
 
-# Configurar directorio temporal de Ultralytics (evita advertencia de directorios duplicados o de solo lectura)
-MAX_CPU_CORES = 2
-MAX_MEMORY_BYTES = int(2.5 * 1024 * 1024 * 1024)  # 2.5 GB limite maximo de memoria
-os.environ["OMP_NUM_THREADS"] = "2"
-os.environ["MKL_NUM_THREADS"] = "2"
-os.environ["OPENBLAS_NUM_THREADS"] = "2"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "2"
-os.environ["NUMEXPR_NUM_THREADS"] = "2"
-os.environ["TORCH_NUM_THREADS"] = "2"
+# Configurar directorio temporal de Ultralytics y limites estrictos (< 800 MB RAM para Streamlit Cloud)
+MAX_CPU_CORES = 1
+MAX_MEMORY_BYTES = int(0.80 * 1024 * 1024 * 1024)  # 800 MB tope preventivo antes del limite de 1 GB
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["TORCH_NUM_THREADS"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["MALLOC_ARENA_MAX"] = "2"
-os.environ["MALLOC_TRIM_THRESHOLD_"] = "65536"
+os.environ["MALLOC_TRIM_THRESHOLD_"] = "32768"
 try:
     if hasattr(os, "sched_getaffinity") and hasattr(os, "sched_setaffinity"):
         _avail_cores = sorted(os.sched_getaffinity(0))
-        if len(_avail_cores) > MAX_CPU_CORES:
-            os.sched_setaffinity(0, set(_avail_cores[:MAX_CPU_CORES]))
+        if len(_avail_cores) > 2:
+            os.sched_setaffinity(0, set(_avail_cores[:2]))
 except Exception:
     pass
 os.environ["YOLO_CONFIG_DIR"] = tempfile.gettempdir()
@@ -114,8 +116,9 @@ st.set_page_config(
 )
 
 
+@st.cache_data(max_entries=1, show_spinner=False)
 def get_logo_base64() -> str:
-    """Carga y codifica en Base64 el archivo logo2.png para renderizado HTML."""
+    """Carga, optimiza a tamaño compacto (<=80px alto) y codifica en Base64 el archivo logo2.png una sola vez."""
     base_dir = Path(__file__).resolve().parent
     candidates = [
         base_dir / "logo2.png",
@@ -127,10 +130,18 @@ def get_logo_base64() -> str:
     for p in candidates:
         if p.exists():
             try:
-                encoded = base64.b64encode(p.read_bytes()).decode("utf-8")
+                with Image.open(p) as im:
+                    im.thumbnail((320, 80), Image.Resampling.LANCZOS)
+                    buf = io.BytesIO()
+                    im.save(buf, format="PNG", optimize=True)
+                    encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
                 return f"data:image/png;base64,{encoded}"
             except Exception:
-                pass
+                try:
+                    encoded = base64.b64encode(p.read_bytes()).decode("utf-8")
+                    return f"data:image/png;base64,{encoded}"
+                except Exception:
+                    pass
     return ""
 
 
@@ -680,12 +691,22 @@ html, body, [class*="css"], .stApp {
     border-radius: 8px !important;
     font-size: 0.84rem !important;
     font-weight: 600 !important;
-    padding: 0.4rem 0.95rem !important;
+    padding: 0.45rem 0.75rem !important;
+    height: auto !important;
+    min-height: 2.5rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
     border: 1px solid var(--color-border) !important;
     background: #FFFFFF !important;
     color: var(--color-text-primary) !important;
     transition: all 0.15s ease !important;
     box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+}
+[data-testid="stButton"] button p {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    line-height: 1.25 !important;
 }
 [data-testid="stButton"] button:hover {
     background: var(--color-accent-light) !important;
@@ -782,8 +803,190 @@ with st.sidebar:
 """, unsafe_allow_html=True)
 
 
-# ─── Carga del Modelo ────────────────────────────────────────────────────────
-models = load_cascade_engine()
+# ─── Configuración STUN/TURN Resiliente y Worker Singleton de Bajo Consumo ───
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_ice_servers() -> list[dict]:
+    """
+    Construye la lista de servidores ICE (STUN + TURN) para WebRTC:
+    1. Si existen credenciales Twilio o TURN propias en st.secrets o variables de entorno, las prioriza.
+    2. Incluye servidores TURN de respaldo (puertos 80 y 443 TCP/TLS) + 1 STUN rápido de Google
+       para atravesar redes móviles 4G/5G (CGNAT) y firewalls sin agotar sockets en aioice.
+    """
+    ice_servers: list[dict] = [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+    ]
+
+    # 1. Soporte opcional para credenciales TURN personalizadas en st.secrets o entorno
+    try:
+        turn_url = os.environ.get("TURN_URL") or (st.secrets.get("TURN_URL") if "TURN_URL" in st.secrets else None)
+        turn_user = os.environ.get("TURN_USERNAME") or (st.secrets.get("TURN_USERNAME") if "TURN_USERNAME" in st.secrets else None)
+        turn_pass = os.environ.get("TURN_CREDENTIAL") or (st.secrets.get("TURN_CREDENTIAL") if "TURN_CREDENTIAL" in st.secrets else None)
+        if turn_url and turn_user and turn_pass:
+            ice_servers.append({
+                "urls": [turn_url] if isinstance(turn_url, str) else list(turn_url),
+                "username": str(turn_user),
+                "credential": str(turn_pass),
+            })
+            return ice_servers
+    except Exception:
+        pass
+
+    # 2. Soporte opcional para Twilio Network Traversal Service si está configurado
+    try:
+        tw_sid = os.environ.get("TWILIO_ACCOUNT_SID") or (st.secrets.get("TWILIO_ACCOUNT_SID") if "TWILIO_ACCOUNT_SID" in st.secrets else None)
+        tw_tok = os.environ.get("TWILIO_AUTH_TOKEN") or (st.secrets.get("TWILIO_AUTH_TOKEN") if "TWILIO_AUTH_TOKEN" in st.secrets else None)
+        if tw_sid and tw_tok:
+            import urllib.request
+            import json as _json
+            req = urllib.request.Request(
+                f"https://api.twilio.com/2010-04-01/Accounts/{tw_sid}/Tokens.json",
+                method="POST",
+                headers={
+                    "Authorization": "Basic " + base64.b64encode(f"{tw_sid}:{tw_tok}".encode()).decode()
+                },
+            )
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                data = _json.loads(resp.read().decode())
+                if "ice_servers" in data:
+                    return data["ice_servers"]
+    except Exception:
+        pass
+
+    # 3. Servidores TURN públicos de respaldo (UDP/TCP 80 y TLS 443) para redes móviles 4G/5G y NAT simétrico
+    ice_servers.extend([
+        {
+            "urls": [
+                "turn:openrelay.metered.ca:80",
+                "turn:openrelay.metered.ca:443",
+                "turns:openrelay.metered.ca:443?transport=tcp",
+            ],
+            "username": "openrelayproject",
+            "credential": "openrelayproject",
+        },
+    ])
+    return ice_servers
+
+
+@st.cache_resource(max_entries=1)
+def get_realtime_worker() -> dict:
+    """
+    Worker singleton persistente con un único hilo daemon durante toda la vida del servidor.
+    Evita crear nuevos threading.Thread por fotograma, eliminando la fuga de memoria
+    thread-local de OpenMP/MKL/PyTorch en Linux.
+    """
+    state = {
+        "lock": threading.Lock(),
+        "event": threading.Event(),
+        "pending_frame": None,
+        "conf_thresh": 0.30,
+        "filter_people": True,
+        "feedback_store": None,
+        "cached_detections": [],
+        "history": [],
+        "last_infer_time": 0.0,
+        "infer_count": 0,
+    }
+
+    def _worker_loop():
+        while True:
+            state["event"].wait()
+            state["event"].clear()
+            with state["lock"]:
+                frame_to_proc = state["pending_frame"]
+                state["pending_frame"] = None
+                conf_val = state["conf_thresh"]
+                filt_val = state["filter_people"]
+                fb_val = state["feedback_store"]
+            if frame_to_proc is None:
+                continue
+            try:
+                engine = load_cascade_engine()
+                _, detections = run_inference(
+                    engine,
+                    frame_to_proc,
+                    conf_threshold=conf_val,
+                    filter_people=filt_val,
+                    feedback_store=fb_val,
+                    imgsz=320,
+                    draw=False,
+                    enable_cascade_fallback=False,
+                )
+                with state["lock"]:
+                    hist = state["history"]
+                    hist.append(detections)
+                    if len(hist) > 3:
+                        hist.pop(0)
+                    if len(detections) == 1 and detections[0]["confianza"] < 0.52 and len(hist) >= 2:
+                        prev_dets = hist[-2]
+                        if prev_dets and prev_dets[0]["confianza"] >= 0.55:
+                            stable = dict(prev_dets[0])
+                            stable["bbox"] = detections[0]["bbox"]
+                            detections = [stable]
+                    state["cached_detections"] = detections
+            except Exception:
+                pass
+            finally:
+                del frame_to_proc
+                state["infer_count"] += 1
+                if state["infer_count"] % 8 == 0 or get_process_rss_bytes() > int(MAX_MEMORY_BYTES * 0.65):
+                    trim_memory()
+
+    worker_thread = threading.Thread(target=_worker_loop, name="EcoCiudad-Singleton-Worker", daemon=True)
+    worker_thread.start()
+    return state
+
+
+def process_and_cache_photo(uploaded_or_shot, conf_thresh: float, filter_people: bool, fb_store_data: dict) -> tuple[bytes, list[dict], str]:
+    """
+    Procesa una imagen subida o capturada reduciendo inmediatamente su resolución a máx. 720px,
+    ejecuta inferencia sólo si cambió el archivo o el umbral, codifica el resultado como JPEG liviano (~65 KB)
+    y libera todos los buffers intermedios de RAM.
+    """
+    raw_file_bytes = uploaded_or_shot.getvalue()
+    img_hash = hashlib.md5(raw_file_bytes).hexdigest()
+    del raw_file_bytes
+
+    cache_key = (img_hash, round(float(conf_thresh), 2), int(get_total_corrections(fb_store_data)))
+    cached_diag = st.session_state.get("cached_photo_diag")
+    if isinstance(cached_diag, dict) and cached_diag.get("key") == cache_key:
+        return cached_diag["jpeg_bytes"], cached_diag["detections"], img_hash
+
+    with Image.open(uploaded_or_shot) as raw_pil:
+        img_rgb = raw_pil.convert("RGB")
+        # Reducción inmediata en memoria: evita que fotos de 12MP-48MP (4000x3000) consuman >300 MB de RAM
+        img_rgb.thumbnail((720, 720), Image.Resampling.BILINEAR)
+        frame_bgr = np.asarray(img_rgb)[:, :, ::-1].copy()
+    del img_rgb
+
+    engine = load_cascade_engine()
+    annotated_bgr, detections = run_inference(
+        engine,
+        frame_bgr,
+        conf_threshold=conf_thresh,
+        filter_people=filter_people,
+        feedback_store=fb_store_data,
+        imgsz=384,
+        draw=True,
+        enable_cascade_fallback=True,
+        in_place_draw=True,
+    )
+
+    pil_out = Image.fromarray(annotated_bgr[:, :, ::-1])
+    buf = io.BytesIO()
+    pil_out.save(buf, format="JPEG", quality=82, optimize=True)
+    jpeg_bytes = buf.getvalue()
+
+    pil_out.close()
+    del frame_bgr, annotated_bgr, pil_out, buf
+    trim_memory()
+
+    st.session_state["cached_photo_diag"] = {
+        "key": cache_key,
+        "jpeg_bytes": jpeg_bytes,
+        "detections": detections,
+    }
+    return jpeg_bytes, detections, img_hash
+
 
 # Encabezado directo y limpio sin tarjeta gigante envolvente
 st.markdown("""
@@ -806,183 +1009,184 @@ tab_live, tab_photo, tab_pv = st.tabs([
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════
-# TAB 1 — Cámara en Vivo
+# TAB 1 — Cámara en Vivo (con soporte STUN/TURN + Modo Directo Anti-Firewall)
 # ═══════════════════════════════════════════════════════════════════════════
 with tab_live:
-    RTC_CONFIG = RTCConfiguration({"iceServers": [
-        {"urls": [
-            "stun:stun.l.google.com:19302",
-            "stun:stun1.l.google.com:19302",
-            "stun:stun2.l.google.com:19302",
-        ]},
-    ]})
+    if "webrtc_nonce" not in st.session_state:
+        st.session_state.webrtc_nonce = 0
 
-    RTC_TRANSLATIONS = {
-        "start": "▶️ Iniciar Escáner",
-        "stop": "⏸️ Detener Escáner",
-        "select_device": "Seleccionar Cámara",
-        "select_camera": "Cámara",
-        "device_ask_permission": "Permití el acceso a la cámara para escanear.",
-        "device_not_available": "No se detectó cámara disponible.",
-        "device_access_denied": "Acceso a la cámara denegado.",
-    }
+    col_mode_live, col_reset_live = st.columns([3.2, 1.0], gap="small")
+    with col_mode_live:
+        live_mode = st.radio(
+            "Modo de transmisión de cámara:",
+            [
+                "📹 Streaming Continuo (WebRTC con STUN/TURN)",
+                "📸 Cámara Rápida Anti-Bloqueo (Sin STUN/TURN · Ideal 4G / Bajo Consumo RAM)",
+            ],
+            horizontal=True,
+            help="Si tu operadora móvil (4G/5G) o red Wi-Fi bloquea conexiones UDP/STUN/TURN, o si minimizaste el navegador en el celular, elegí 'Cámara Rápida Anti-Bloqueo' o tocá 'Reiniciar Cámara'.",
+        )
+    with col_reset_live:
+        st.write("")
+        if st.button("🔄 Reiniciar Cámara", key="btn_reset_webrtc", width="stretch", help="Reconecta el escáner si minimizaste el navegador o cambiaste de app en el celular."):
+            st.session_state.webrtc_nonce += 1
+            worker_st = get_realtime_worker()
+            with worker_st["lock"]:
+                worker_st["cached_detections"] = []
+                worker_st["history"].clear()
+            st.rerun()
 
-    # Worker asincrono en segundo plano con filtro de estabilidad temporal (evita parpadeos de 1 frame)
-    worker_state = {
-        "lock": threading.Lock(),
-        "is_busy": False,
-        "cached_detections": [],
-        "history": [],
-        "last_infer_time": 0.0,
-        "infer_count": 0,
-    }
+    if "Streaming Continuo" in live_mode:
+        RTC_CONFIG = RTCConfiguration({"iceServers": get_ice_servers()})
 
-    def _async_infer_task(frame_copy):
-        try:
-            _, detections = run_inference(
-                models,
-                frame_copy,
-                conf_threshold=CONF_THRESH,
-                filter_people=FILTER_PEOPLE,
-                feedback_store=fb_store,
-                imgsz=320,
-                draw=False,
-            )
+        RTC_TRANSLATIONS = {
+            "start": "▶️ Iniciar Escáner",
+            "stop": "⏸️ Detener Escáner",
+            "select_device": "Seleccionar Cámara",
+            "select_camera": "Cámara",
+            "device_ask_permission": "Permití el acceso a la cámara para escanear.",
+            "device_not_available": "No se detectó cámara disponible.",
+            "device_access_denied": "Acceso a la cámara denegado.",
+        }
 
-            with worker_state["lock"]:
-                hist = worker_state["history"]
-                hist.append(detections)
-                if len(hist) > 3:
-                    hist.pop(0)
+        worker_state = get_realtime_worker()
+        with worker_state["lock"]:
+            worker_state["conf_thresh"] = CONF_THRESH
+            worker_state["filter_people"] = FILTER_PEOPLE
+            worker_state["feedback_store"] = fb_store
 
-                # Si la deteccion actual es de baja confianza (<52%) y en los frames previos
-                # hubo una clase consistente de mayor confianza, mantener la clase estable
-                if len(detections) == 1 and detections[0]["confianza"] < 0.52 and len(hist) >= 2:
-                    prev_dets = hist[-2]
-                    if prev_dets and prev_dets[0]["confianza"] >= 0.55:
-                        stable = dict(prev_dets[0])
-                        stable["bbox"] = detections[0]["bbox"]
-                        detections = [stable]
-
-                worker_state["cached_detections"] = detections
-        except Exception:
-            pass
-        finally:
-            del frame_copy
-            worker_state["infer_count"] += 1
-            if worker_state["infer_count"] % 15 == 0 or get_process_rss_bytes() > int(MAX_MEMORY_BYTES * 0.72):
-                trim_memory()
-            worker_state["is_busy"] = False
-
-    def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-        try:
-            now = time.time()
-            with worker_state["lock"]:
-                current_dets = list(worker_state["cached_detections"])
-                should_infer = (not worker_state["is_busy"]) and (now - worker_state["last_infer_time"] >= 0.40)
-                if should_infer:
-                    worker_state["is_busy"] = True
-                    worker_state["last_infer_time"] = now
-            if not should_infer and not current_dets:
-                return frame
-            img_bgr = frame.to_ndarray(format="bgr24")
-            if is_frame_blank_or_dark(img_bgr):
+        def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
+            try:
+                now = time.time()
                 with worker_state["lock"]:
-                    worker_state["cached_detections"] = []
-                    worker_state["history"].clear()
-                    worker_state["is_busy"] = False
+                    current_dets = list(worker_state["cached_detections"])
+                    should_infer = (worker_state["pending_frame"] is None) and (now - worker_state["last_infer_time"] >= 0.45)
+
+                if not should_infer and not current_dets:
+                    return frame
+
+                img_bgr = frame.to_ndarray(format="bgr24")
+                if is_frame_blank_or_dark(img_bgr):
+                    with worker_state["lock"]:
+                        worker_state["cached_detections"] = []
+                        worker_state["history"].clear()
+                    return frame
+
+                if should_infer:
+                    # Reducir resolución si el frame supera 480px de ancho para minimizar copia en RAM
+                    h_f, w_f = img_bgr.shape[:2]
+                    if w_f > 480:
+                        infer_frame = img_bgr[::2, ::2].copy()
+                    else:
+                        infer_frame = img_bgr.copy() if current_dets else img_bgr
+                    with worker_state["lock"]:
+                        worker_state["pending_frame"] = infer_frame
+                        worker_state["last_infer_time"] = now
+                    worker_state["event"].set()
+
+                if current_dets:
+                    annotated = draw_detections(img_bgr, current_dets, in_place=True)
+                    return av.VideoFrame.from_ndarray(annotated, format="bgr24")
                 return frame
-            now = time.time()
+            except Exception:
+                return frame
 
-            # Disparar inferencia en segundo plano cada 0.35s sin demorar el video en tiempo real
-            if should_infer:
-                worker_state["is_busy"] = True
-                worker_state["last_infer_time"] = now
-                threading.Thread(
-                    target=_async_infer_task,
-                    args=(img_bgr.copy() if current_dets else img_bgr,),
-                    daemon=True
-                ).start()
-
-            # Dibujo instantaneo sobre el frame actual (<2ms)
-            with worker_state["lock"]:
-                current_dets = list(worker_state["cached_detections"])
-
-            if current_dets:
-                annotated = draw_detections(img_bgr, current_dets, in_place=True)
-                return av.VideoFrame.from_ndarray(annotated, format="bgr24")
-            return frame
-        except Exception:
-            return frame
-
-    webrtc_streamer(
-        key="stream-ecociudad-hybrid",
-        mode=WebRtcMode.SENDRECV,
-        rtc_configuration=RTC_CONFIG,
-        video_frame_callback=video_frame_callback,
-        media_stream_constraints={
-            "video": {
-                "width": {"ideal": 480, "max": 640},
-                "height": {"ideal": 360, "max": 480},
-                "facingMode": "environment",
-                "frameRate": {"ideal": 15, "max": 20},
+        webrtc_streamer(
+            key=f"stream-ecociudad-hybrid-{st.session_state.webrtc_nonce}",
+            mode=WebRtcMode.SENDRECV,
+            rtc_configuration=RTC_CONFIG,
+            video_frame_callback=video_frame_callback,
+            media_stream_constraints={
+                "video": {
+                    "width": {"ideal": 480, "max": 640},
+                    "height": {"ideal": 360, "max": 480},
+                    "facingMode": {"ideal": "environment"},
+                    "frameRate": {"ideal": 12, "max": 15},
+                },
+                "audio": False,
             },
-            "audio": False,
-        },
-        video_html_attrs={
-            "autoPlay": True,
-            "controls": True,
-            "muted": True,
-            "style": {
-                "width": "100%",
-                "maxWidth": "820px",
-                "height": "460px",
-                "minHeight": "440px",
-                "maxHeight": "64vh",
-                "aspectRatio": "4/3",
-                "objectFit": "contain",
-                "margin": "0 auto",
-                "display": "block",
-                "borderRadius": "10px",
-                "backgroundColor": "#0F172A",
+            video_html_attrs={
+                "autoPlay": True,
+                "controls": True,
+                "muted": True,
+                "style": {
+                    "width": "100%",
+                    "maxWidth": "820px",
+                    "height": "460px",
+                    "minHeight": "440px",
+                    "maxHeight": "64vh",
+                    "aspectRatio": "4/3",
+                    "objectFit": "contain",
+                    "margin": "0 auto",
+                    "display": "block",
+                    "borderRadius": "10px",
+                    "backgroundColor": "#0F172A",
+                },
             },
-        },
-        desired_playing_state=None,
-        async_processing=True,
-        translations=RTC_TRANSLATIONS,
-    )
-
-    st.caption("💡 ¿Tu dispositivo o red móvil restringe WebRTC? En la pestaña **'Subir Archivo / Foto'** podés usar la cámara instantánea sin streaming continuo.")
+            desired_playing_state=None,
+            async_processing=True,
+            translations=RTC_TRANSLATIONS,
+        )
+        st.caption("💡 **¿Volviste de otra app en el celular o aparece aviso de STUN/TURN?** Tocá **'🔄 Reiniciar Cámara'** arriba a la derecha o cambiá a **'📸 Cámara Rápida Anti-Bloqueo'**.")
+    else:
+        st.info("⚡ **Modo Anti-Bloqueo STUN/TURN activo:** Este visor utiliza captura directa HTTPS del navegador, inmune a bloqueos de firewall/CGNAT 4G y a suspensiones al cambiar de app en el celular.")
+        live_quick_shot = st.camera_input("Enfocá el residuo y tocá el botón para escanear al instante:", key=f"cam_live_fallback_{st.session_state.webrtc_nonce}")
+        if live_quick_shot is not None:
+            q_jpeg, q_dets, _ = process_and_cache_photo(live_quick_shot, CONF_THRESH, FILTER_PEOPLE, fb_store)
+            c_l1, c_l2 = st.columns([1, 1], gap="medium")
+            with c_l1:
+                st.image(q_jpeg, width="stretch")
+            with c_l2:
+                if q_dets:
+                    st.session_state.ultimo_residuo = q_dets[0]
+                    for d_item in q_dets:
+                        st.success(f"**{d_item['emoji']} {d_item['label']}** ({d_item['confianza']:.0%})\n\n**Destino:** {d_item['tipo']}\n\n**Acción:** {d_item['accion']}")
+                else:
+                    st.warning("No se detectó ningún residuo claro con el umbral actual. Acercá el objeto al centro o usá la pestaña 'Subir Archivo / Foto' para asistencia manual.")
 
 with tab_photo:
+    if "uploader_nonce" not in st.session_state:
+        st.session_state.uploader_nonce = 0
+
     col_in, col_out = st.columns([1, 1], gap="medium")
 
     with col_in:
-        st.subheader("📥 Carga de Archivo o Foto")
+        c_hdr_in, c_rst_in = st.columns([2.6, 1.1])
+        with c_hdr_in:
+            st.subheader("📥 Carga de Archivo o Foto")
+        with c_rst_in:
+            if st.button("🔄 Nueva Captura", key="btn_reset_uploader", width="stretch", help="Limpia y desbloquea el cargador si cambiaste de app o minimizaste el navegador en el celular."):
+                st.session_state.uploader_nonce += 1
+                st.session_state.confirmed_override = None
+                st.session_state.pop("cached_photo_diag", None)
+                st.rerun()
+
         input_mode = st.radio(
             "Elegí el método de captura:",
             ["📁 Subir Archivo", "📸 Tomar Foto Instantánea"],
             horizontal=True
         )
     
-        img_pil = None
+        source_media = None
         if input_mode == "📁 Subir Archivo":
             uploaded = st.file_uploader(
-                "Subir o arrastrar foto de tus residuos:",
+                "Subir o arrastrar foto de tus residuos (en celular permite abrir la cámara trasera nativa):",
                 type=["jpg", "jpeg", "png", "webp", "bmp"],
-                help="Soporta fotos con 1 o múltiples residuos simultáneos"
+                key=f"file_up_{st.session_state.uploader_nonce}",
+                help="En celulares, al tocar 'Browse files' podés elegir 'Cámara' para sacar la foto directamente con la cámara trasera."
             )
-            if uploaded:
-                img_pil = Image.open(uploaded).convert("RGB")
+            if uploaded is not None:
+                source_media = uploaded
         else:
-            cam_shot = st.camera_input("Sacá una foto clara de tus residuos:")
-            if cam_shot:
-                img_pil = Image.open(cam_shot).convert("RGB")
+            st.caption("📱 **Tip para celulares:** Si el navegador pide permiso por primera vez y no abre el visor, recargá la página. Para cambiar de cámara frontal a trasera, tocá el ícono 🔄 arriba a la derecha del visor.")
+            cam_shot = st.camera_input("Sacá una foto clara de tus residuos:", key=f"cam_shot_{st.session_state.uploader_nonce}")
+            if cam_shot is not None:
+                source_media = cam_shot
 
     with col_out:
         st.subheader("🔍 Diagnóstico Multi-Residuo")
 
-        if img_pil is None:
+        if source_media is None:
             st.session_state.confirmed_override = None
             st.markdown("""
 <div style="background:#F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: 12px; padding: 2.2rem 1.5rem; text-align: center;">
@@ -994,23 +1198,17 @@ with tab_photo:
 </div>
 """, unsafe_allow_html=True)
         else:
-            import hashlib
-            img_bytes = img_pil.tobytes()
-            img_hash = hashlib.md5(img_bytes[:20000]).hexdigest()
+            jpeg_bytes, detections, img_hash = process_and_cache_photo(
+                source_media,
+                conf_thresh=CONF_THRESH,
+                filter_people=FILTER_PEOPLE,
+                fb_store_data=fb_store,
+            )
             if st.session_state.get("current_img_hash") != img_hash:
                 st.session_state.current_img_hash = img_hash
                 st.session_state.confirmed_override = None
 
-            frame_bgr = np.array(img_pil)[:, :, ::-1].copy()
-            annotated_bgr, detections = run_inference(
-                models,
-                frame_bgr,
-                conf_threshold=CONF_THRESH,
-                filter_people=FILTER_PEOPLE,
-                feedback_store=fb_store,
-            )
-            annotated_rgb = annotated_bgr[:, :, ::-1].copy()
-            st.image(annotated_rgb, width="stretch")
+            st.image(jpeg_bytes, width="stretch")
 
             active_override = st.session_state.get("confirmed_override")
             if active_override:
@@ -1032,21 +1230,20 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
 </div>
 """, unsafe_allow_html=True)
                 quick_materials = [
-                    ("plastic",    "🧴 Plástico"),
+                    ("plastic",    "🧴 Plástico / Pote"),
                     ("cardboard",  "📦 Cartón"),
                     ("paper",      "📄 Papel"),
                     ("glass",      "🍾 Vidrio"),
                     ("metal",      "🥫 Metal / Lata"),
                     ("battery",    "🔋 Pila / Batería"),
-                    ("biological", "🍂 Orgánico"),
+                    ("biological", "🍂 Orgánico / No Reciclable"),
                     ("clothes",    "👕 Ropa / Textil"),
                     ("cell phone", "📱 Celular / RAEE"),
-                    ("oil",        "🍳 Aceite (AVU)"),
-                    ("trash",      "🗑️ Basura (Negro)"),
+                    ("oil",        "🍳 Aceite Usado (AVU)"),
                 ]
-                cols_btn = st.columns(4)
+                cols_btn = st.columns(2)
                 for idx, (mat_key, mat_label) in enumerate(quick_materials):
-                    col_target = cols_btn[idx % 4]
+                    col_target = cols_btn[idx % 2]
                     if col_target.button(mat_label, key=f"btn_fb_empty_{mat_key}", width="stretch"):
                         info = get_waste_info(mat_key)
                         new_store = add_correction(
@@ -1158,7 +1355,7 @@ Tocá el botón correspondiente para clasificarlo y guardar el aprendizaje en el
                 elif has_donation:
                     st.info("🟣 **Textil / Calzado:** Si está en buen estado, donalo a ONGs, iglesias o ferias barriales. Si son restos textiles limpios, podés acercarlos a un **Punto Verde o Centro Verde**; si están sucios o rotos, van en **Bolsa Negra**.")
                 elif has_black_bag:
-                    st.warning("⚫ **Disposición en Contenedor Negro / Compostera:** Este residuo corresponde a **Basura Común o Restos Orgánicos**. **NO arrojar en el Contenedor Verde** para no contaminar los materiales reciclables.")
+                    st.warning("⚫ **Disposición en Contenedor Negro / Compostera:** Este residuo corresponde a **Orgánico / No Reciclable (Basura Común)**. **NO arrojar en el Contenedor Verde** para no contaminar los materiales reciclables.")
                 else:
                     st.success("🟢 **Disposición en Origen:** Podés depositar estos materiales directamente en el **Contenedor Verde** de tu cuadra (limpios y secos), o llevarlos a un Punto/Centro Verde.")
 
@@ -1252,23 +1449,22 @@ Al seleccionar el material, se actualiza el diagnóstico en pantalla y se guarda
 """, unsafe_allow_html=True)
 
                     quick_materials = [
-                        ("plastic",    "🧴 Plástico"),
+                        ("plastic",    "🧴 Plástico / Pote"),
                         ("cardboard",  "📦 Cartón"),
                         ("paper",      "📄 Papel"),
                         ("glass",      "🍾 Vidrio"),
                         ("metal",      "🥫 Metal / Lata"),
                         ("battery",    "🔋 Pila / Batería"),
-                        ("biological", "🍂 Orgánico"),
+                        ("biological", "🍂 Orgánico / No Reciclable"),
                         ("clothes",    "👕 Ropa / Textil"),
                         ("cell phone", "📱 Celular / RAEE"),
-                        ("oil",        "🍳 Aceite (AVU)"),
-                        ("trash",      "🗑️ Basura (Negro)"),
+                        ("oil",        "🍳 Aceite Usado (AVU)"),
                     ]
 
                     st.write("")
-                    cols_btn = st.columns(4)
+                    cols_btn = st.columns(2)
                     for idx, (mat_key, mat_label) in enumerate(quick_materials):
-                        col_target = cols_btn[idx % 4]
+                        col_target = cols_btn[idx % 2]
                         if col_target.button(mat_label, key=f"btn_fb_{mat_key}", width="stretch"):
                             info = get_waste_info(mat_key)
                             pred_cls = detections[0]["clase"] if detections else "unknown"
