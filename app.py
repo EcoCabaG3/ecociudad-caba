@@ -1743,7 +1743,9 @@ Visualizá las **32 plazas con Puntos Verdes** y las **14 plantas de Centros Ver
         else:
             return [16, 185, 129, 220]
 
-    df_map_render = df_filtrado_mapa.copy().fillna("")
+    df_map_render = df_filtrado_mapa.copy()
+    str_cols = df_map_render.select_dtypes(include=["object", "string"]).columns
+    df_map_render[str_cols] = df_map_render[str_cols].fillna("")
     df_map_render["color"] = df_map_render.apply(get_color_pdk, axis=1)
 
     layer_points = pdk.Layer(
