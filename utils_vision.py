@@ -8,6 +8,7 @@ import math
 import gc
 import ctypes
 import tempfile
+import threading
 
 # ─── Limites de Recursos Hardware (Tope Seguro < 800 MB RAM para Streamlit Cloud) ─
 MAX_CPU_CORES = 1
@@ -110,6 +111,9 @@ def get_process_rss_bytes() -> int:
     return 0
 
 
+_INFERENCE_LOCK = threading.Lock()
+
+
 def _clear_predictor_memory(yolo_model: YOLO | None) -> None:
     """Elimina referencias retenidas a tensores e imagenes dentro de Ultralytics Predictor."""
     if yolo_model is None:
@@ -117,7 +121,6 @@ def _clear_predictor_memory(yolo_model: YOLO | None) -> None:
     pred = getattr(yolo_model, "predictor", None)
     if pred is not None:
         pred.results = None
-        pred.batch = None
         pred.dataset = None
 
 # ---------------------------------------------------------------------------
@@ -217,6 +220,12 @@ WASTE_MAP = {
     
     # Metales (Contenedor Verde)
     "metal":                {"label": "Metal / Aluminio",     "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar latas para ahorrar espacio.", "es_especial": False},
+    "scissors":             {"label": "Tijera / Metal",       "emoji": "✂️", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Objeto metalico reciclable. Envolver las puntas por seguridad antes de llevar al Contenedor Verde o Punto Verde.", "es_especial": False},
+    "metal scissors":       {"label": "Tijera / Metal",       "emoji": "✂️", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Objeto metalico reciclable. Envolver las puntas por seguridad antes de llevar al Contenedor Verde o Punto Verde.", "es_especial": False},
+    "pair of scissors":     {"label": "Tijera / Metal",       "emoji": "✂️", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Objeto metalico reciclable. Envolver las puntas por seguridad antes de llevar al Contenedor Verde o Punto Verde.", "es_especial": False},
+    "eyeglasses case":      {"label": "Estuche Rigido / Plastico", "emoji": "🕶️", "tipo": "Donación / Reciclable Seco", "color": (46, 204, 113), "accion": "Estuche rigido de plastico/metal. Si esta sano se puede reutilizar; si esta roto va a Contenedor Verde (sin forro textil) o Bolsa Negra.", "es_especial": False},
+    "glasses case":         {"label": "Estuche Rigido / Plastico", "emoji": "🕶️", "tipo": "Donación / Reciclable Seco", "color": (46, 204, 113), "accion": "Estuche rigido de plastico/metal. Si esta sano se puede reutilizar; si esta roto va a Contenedor Verde (sin forro textil) o Bolsa Negra.", "es_especial": False},
+    "hard case":            {"label": "Estuche Rigido / Plastico", "emoji": "🕶️", "tipo": "Donación / Reciclable Seco", "color": (46, 204, 113), "accion": "Estuche rigido de plastico/metal. Si esta sano se puede reutilizar; si esta roto va a Contenedor Verde (sin forro textil) o Bolsa Negra.", "es_especial": False},
     "can":                  {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
     "aluminum can":         {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
     "soda can":             {"label": "Lata / Aluminio",      "emoji": "🥫", "tipo": "Reciclable Seco (Verde)",  "color": (149, 165, 166), "accion": "Limpio y seco. Aplastar si es posible.", "es_especial": False},
@@ -393,6 +402,10 @@ _KEYWORD_FALLBACK = [
     ("lotion",         "lotion bottle"),
     ("cream",          "cream bottle"),
     ("shampoo",        "shampoo bottle"),
+    ("scissors",       "scissors"),
+    ("glasses case",   "glasses case"),
+    ("eyeglasses case","eyeglasses case"),
+    ("hard case",      "hard case"),
     ("can",            "can"),
     ("tin",            "tin can"),
     ("steel",          "steel can"),
@@ -465,7 +478,7 @@ IGNORED_CLASSES = {
     "chair", "couch", "sofa", "bed", "dining table", "table", "wooden table", "desk", "tv", "laptop-screen",
     "refrigerator", "microwave", "oven", "sink", "door", "window", "cabinet", "wardrobe", "cupboard", "closet", "drawer",
     "toilet", "clock", "vase", "potted plant", "mirror", "picture frame", "wooden frame", "painting", "poster",
-    "wall", "floor", "ceiling", "shelf", "room", "indoor", "wooden door", "furniture", "wood furniture",
+    "wall", "floor", "ceiling", "ceiling fan", "fan", "shelf", "room", "indoor", "wooden door", "furniture", "wood furniture",
     "plastic crate", "shopping basket", "grass", "lawn", "plant"
 }
 
@@ -493,15 +506,16 @@ WORLD_CLASSES = [
     # Personas, Rostros, Anteojos y Ropa puesta (descarte de usuario y vestimenta)
     "person", "human face", "eyeglasses", "glasses", "hand",
     "hoodie", "shirt", "sweater", "jacket",
-    # Mobiliario y entorno de fondo (descarte de puertas, mesas, canastos, pasto y paredes)
+    # Mobiliario y entorno de fondo (descarte de puertas, mesas, canastos, ventiladores, pasto y paredes)
     "wardrobe", "closet", "cabinet", "wooden door", "door", "shelf", "furniture",
     "wooden table", "table", "desk", "plastic crate", "shopping basket", "grass",
-    "mirror", "picture frame", "wooden frame", "window", "wall",
+    "ceiling fan", "fan", "mirror", "picture frame", "wooden frame", "window", "wall",
     # Vidrio y Vasos
     "drinking glass", "glass cup", "glass bottle", "glass", "wine glass",
-    # Potes Redondos, Envases Cosmeticos, Tapas y Envases Plasticos
+    # Potes Redondos, Envases Cosmeticos, Estuches, Tapas y Envases Plasticos
     "round plastic container", "white plastic jar", "ointment jar", "cosmetic jar", "cream jar",
     "plastic jar", "plastic tub", "plastic pot", "plastic container", "plastic lid", "plastic cap", "jar", "pot",
+    "eyeglasses case", "glasses case", "hard case",
     # Bolsas Plasticas y Envoltorios
     "plastic bag", "white plastic bag", "supermarket plastic bag", "grocery bag", "shopping bag", "plastic wrapper",
     # Vasos
@@ -511,7 +525,8 @@ WORLD_CLASSES = [
     # Botellas y Envases (con descriptores explicitos para evitar que la etiqueta cilindrica se confunda con lata o vaper)
     "clear plastic bottle", "water bottle", "soda bottle", "juice bottle", "pet bottle", "plastic bottle", "bottle", "thermos",
     "lotion bottle", "cream bottle", "shampoo bottle", "cosmetic bottle", "nail polish bottle", "perfume bottle", "small glass bottle", "dropper bottle", "serum bottle",
-    # Utiles y Objetos Plasticos / Oficina / Medicion
+    # Utiles, Tijeras y Objetos Plasticos / Oficina / Medicion
+    "scissors", "pair of scissors", "metal scissors",
     "plastic ruler", "ruler", "pen", "plastic pen", "ballpoint pen",
     "marker", "marker pen", "permanent marker", "sharpie marker", "felt tip pen", "highlighter pen", "pencil",
     # Aceite
@@ -687,6 +702,14 @@ def get_waste_info(class_name: str) -> dict | None:
         norm = "plastic"
     norm_spaced = norm.replace("-", " ").replace("_", " ").strip()
 
+    # 1. Busqueda exacta (prioriza clases compuestas como 'glasses case' antes del chequeo por token)
+    if norm in WASTE_MAP:
+        return WASTE_MAP[norm]
+
+    # 2. Normalizar guiones y underscores → espacios y buscar exacto
+    if norm_spaced in WASTE_MAP:
+        return WASTE_MAP[norm_spaced]
+
     # Verificacion estricta de clases ignoradas (personas, rostros, muebles, fondo)
     if norm in IGNORED_CLASSES or norm_spaced in IGNORED_CLASSES:
         return None
@@ -694,14 +717,6 @@ def get_waste_info(class_name: str) -> dict | None:
     for ignored in IGNORED_CLASSES:
         if ignored == norm or ignored.replace("-", " ").replace("_", " ") == norm_spaced:
             return None
-
-    # 1. Busqueda exacta
-    if norm in WASTE_MAP:
-        return WASTE_MAP[norm]
-
-    # 2. Normalizar guiones y underscores → espacios y buscar exacto
-    if norm_spaced in WASTE_MAP:
-        return WASTE_MAP[norm_spaced]
 
     # 3. Busqueda de palabras completas (token a token)
     tokens = norm_spaced.split()
@@ -884,9 +899,9 @@ def _detect_bounding_boxes(
     h_img, w_img = frame_bgr.shape[:2]
     frame_area = w_img * h_img
 
-    # Umbral interno reducido para no perder objetos chicos en mano (pilas AA/AAA, marcadores, papeles)
+    # Umbral interno reducido para no perder objetos chicos en mano (pilas AA/AAA, marcadores, papeles, tijeras)
     query_conf = min(conf_threshold, 0.14)
-    with torch.inference_mode():
+    with _INFERENCE_LOCK, torch.inference_mode():
         results = detector(frame_bgr, conf=query_conf, imgsz=imgsz, verbose=False)[0]
 
     if getattr(results, "boxes", None) is None or len(results.boxes) == 0:
@@ -910,20 +925,22 @@ def _detect_bounding_boxes(
     battery_boxes = []
     for cls_id, c_score, xyxy in boxes_list:
         c_name = detector.names[cls_id].lower()
-        if any(k in c_name for k in ("face", "head", "eyeglasses", "glasses", "spectacles")):
+        if any(k in c_name for k in ("face", "head", "eyeglasses", "glasses", "spectacles")) and "case" not in c_name:
             face_or_glasses_boxes.append(xyxy)
         if any(k in c_name for k in ("person", "face", "man", "woman", "head")):
             has_person_or_clothes = True
             person_boxes.append(xyxy)
         if any(k in c_name for k in ("bottle", "plastic cap", "plastic lid", "nail polish", "perfume", "cosmetic", "jar")) and c_score >= 0.16:
             bottle_or_cap_boxes.append((c_name, c_score, xyxy))
-        if any(k in c_name for k in ("marker", "sharpie", "pen", "highlighter", "felt tip", "pencil")) and c_score >= 0.16:
+        if any(k in c_name for k in ("marker", "sharpie", "pen", "highlighter", "felt tip", "pencil", "scissors")) and c_score >= 0.16:
             marker_or_pen_boxes.append((c_name, c_score, xyxy))
         if any(k in c_name for k in ("battery", "batteries", "duracell")) and c_score >= 0.14:
             battery_boxes.append((c_name, c_score, xyxy))
 
     _SENSITIVE_SMALL_CLASSES = {
         "battery", "batteries", "aa battery", "aaa battery", "cylindrical battery", "alkaline battery", "duracell battery",
+        "scissors", "pair of scissors", "metal scissors",
+        "eyeglasses case", "glasses case", "hard case",
         "marker", "marker pen", "permanent marker", "sharpie marker", "felt tip pen", "highlighter pen",
         "pen", "plastic pen", "ballpoint pen",
         "nail polish bottle", "perfume bottle", "small glass bottle", "cosmetic bottle", "dropper bottle", "serum bottle",
@@ -950,20 +967,27 @@ def _detect_bounding_boxes(
         if conf < min_allowed_conf:
             continue
 
-        # Filtro inmediato de personas, rostros, anteojos, muebles, espejos o paredes
+        # Filtro inmediato de personas, rostros, anteojos (excepto 'glasses case'), muebles, ventiladores, espejos o paredes
         if filter_people and (
             cls_name in IGNORED_CLASSES
-            or any(ign in cls_name for ign in (
-                "person", "face", "man", "woman", "head", "glasses", "hand",
-                "wardrobe", "closet", "cabinet", "door", "shelf", "furniture", "table", "desk",
-                "mirror", "picture frame", "wooden frame", "window", "wall", "crate", "basket", "grass"
-            ))
+            or (
+                "case" not in cls_name
+                and any(ign in cls_name for ign in (
+                    "person", "face", "man", "woman", "head", "glasses", "hand",
+                    "wardrobe", "closet", "cabinet", "door", "shelf", "furniture", "table", "desk",
+                    "ceiling fan", "fan", "mirror", "picture frame", "wooden frame", "window", "wall", "crate", "basket", "grass"
+                ))
+            )
         ):
             continue
 
-        # Si es una prenda de ropa ('shirt', 't-shirt', 'hoodie', 'sweater', 'jacket') y hay una persona/rostro en escena,
-        # descartarla para no marcar la ropa que lleva puesta el usuario. Si NO hay persona en la foto (ej. remera apoyada en el piso/mesa), permitirla!
-        if filter_people and cls_name in IGNORORED_CLOTHING_WHEN_PERSON:
+        # Si es una prenda de ropa o calzado y hay una persona/rostro en escena (selfie frente a camara),
+        # descartarla para no marcar la ropa puesta ni falsos positivos de calzado cuando se sostiene una tijera/objeto en alto.
+        # Si NO hay persona en la foto (ej. remera o zapatillas apoyadas en el piso/mesa), permitirlas!
+        if filter_people and (
+            cls_name in IGNORORED_CLOTHING_WHEN_PERSON
+            or cls_name in ("shoes", "shoe", "sneakers", "white sneakers", "canvas shoes", "tennis shoes", "running shoes", "pair of shoes", "footwear")
+        ):
             if has_person_or_clothes or len(face_or_glasses_boxes) > 0:
                 continue
 
@@ -1289,7 +1313,7 @@ def _classify_focal_center(
                 bbox = (bx1, by1, bx2, by2)
                 center_crop = frame_bgr[by1:by2, bx1:bx2]
 
-    with torch.inference_mode():
+    with _INFERENCE_LOCK, torch.inference_mode():
         crop_res = classifier(center_crop, imgsz=224, verbose=False)[0]
 
     if getattr(crop_res, "probs", None) is None:
@@ -1304,21 +1328,22 @@ def _classify_focal_center(
     # Analizar si hay una mano sosteniendo el objeto focal en el centro
     _, _, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
-    # Bloqueo estricto de ropa puesta o calzado puesto sobre cuerpo humano:
-    # Un usuario frente a la camara NUNCA debe ser diagnosticado como residuo, pero si es una foto directa
-    # a ropa/mantas dobladas o papeles sobre una mesa (sin piel de rostro/cuerpo), se permite con confianza >= 0.45.
+    # Bloqueo estricto de ropa puesta o calzado falso cuando hay piel humana / mano / rostro en escena:
+    # Un usuario frente a la camara o sosteniendo un objeto pequeno en la mano NUNCA debe ser diagnosticado
+    # como 'shoes' ni 'clothes' por el clasificador de respaldo (que confunde dedos + objetos o ventiladores con calzado).
+    # En cambio, si NO hay piel en el recorte (skin_ratio <= 0.03, ej. zapatillas o remera apoyadas en el piso/mesa), se permite!
     for idx_c, name_c in classifier.names.items():
         c_low = name_c.lower()
         if c_low in ("clothes", "shoes"):
-            if skin_ratio > 0.05 and not hand_detected:
+            if skin_ratio > 0.03 or hand_detected:
                 p_combined[int(idx_c)] = 0.0
 
     top1_id = int(np.argmax(p_combined))
     top1_conf = float(p_combined[top1_id])
     raw_top1_cls = classifier.names[top1_id].lower()
 
-    # Si la clase dominante es ropa/calzado y hay piel de cuerpo sin mano aislada, o confianza baja, descartar
-    if raw_top1_cls in ("clothes", "shoes") and ((skin_ratio > 0.05 and not hand_detected) or top1_conf < 0.46):
+    # Si la clase dominante es ropa/calzado y hay piel/mano o confianza baja, descartar
+    if raw_top1_cls in ("clothes", "shoes") and (skin_ratio > 0.03 or hand_detected or top1_conf < 0.46):
         return []
     # Si es papel/carton sin mano sosteniendolo, exigir confianza >= 0.50 para evitar fondos lisos
     if raw_top1_cls in ("paper", "cardboard") and not hand_detected and top1_conf < 0.50:
