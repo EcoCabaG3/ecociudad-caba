@@ -8,10 +8,10 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 FEEDBACK_PATH = BASE_DIR / "feedback_log.json"
 
-# Hiperparametros de auto-aprendizaje
-BASE_VOTE_BOOST = 0.08      # Boost de confianza por cada confirmacion directa
-HELD_CENTER_BOOST = 0.12    # Boost adicional cuando el objeto esta sostenido en el centro
-MAX_TOTAL_BOOST = 0.50      # Limite maximo de boost para evitar saturacion (cap a 0.99)
+# Hiperparametros de auto-aprendizaje (calibrados como desempate suave para no secuestrar otras clases)
+BASE_VOTE_BOOST = 0.03      # Boost sutil por confirmacion de la MISMA clase
+HELD_CENTER_BOOST = 0.01    # Boost minimo de contexto espacial
+MAX_TOTAL_BOOST = 0.10      # Limite maximo de boost (evita que una clase aprendida pise objetos distintos)
 DAMPING_FACTOR = 0.95       # Amortiguacion para regularizacion
 
 
@@ -82,34 +82,42 @@ def calculate_boosted_confidence(
     store: dict
 ) -> tuple[float, bool]:
     """
-    Calcula la nueva confianza efectiva incorporando el auto-entrenamiento.
+    Calcula la nueva confianza efectiva incorporando el auto-entrenamiento de forma segura.
+    Solo aplica refuerzo cuando el detector ya tiene evidencia propia suficiente (raw_conf >= 0.32)
+    y para la misma clase predicha, evitando que haber corregido un objeto en mano (ej. Pila)
+    fuerce a que el siguiente objeto en mano (ej. Cajita de carton) se clasifique como Pila.
     Retorna: (confianza_efectiva, fue_mejorado_por_aprendizaje)
     """
-    if not store:
+    if not store or raw_conf < 0.32:
         return raw_conf, False
 
     cls_name = cls_name.lower().strip()
     predicted_cls = predicted_cls.lower().strip()
+
+    # Nunca permitir que el historial transforme una clase predicha en otra distinta por la fuerza
+    if cls_name != predicted_cls:
+        return raw_conf, False
+
     corrections = store.get("corrections", {})
     held_weights = store.get("held_center_weights", {})
 
     boost = 0.0
     boost_applied = False
 
-    # 1. Boost por votos historicos de confirmacion
+    # 1. Boost por confirmaciones historicas de esta misma clase
     if predicted_cls in corrections:
         votes_for_this = corrections[predicted_cls].get(cls_name, 0)
         if votes_for_this > 0:
             boost += min(votes_for_this * BASE_VOTE_BOOST, MAX_TOTAL_BOOST)
             boost_applied = True
 
-    # 2. Boost por patron de objeto sostenido en el centro visual
-    if is_held_in_center and cls_name in held_weights:
+    # 2. Boost minimo adicional si ademas fue confirmado en mano previamente
+    if boost_applied and is_held_in_center and cls_name in held_weights:
         held_votes = held_weights.get(cls_name, 0)
         if held_votes > 0:
-            boost += min(held_votes * HELD_CENTER_BOOST, 0.25)
-            boost_applied = True
+            boost += min(held_votes * HELD_CENTER_BOOST, 0.03)
 
+    boost = min(boost, MAX_TOTAL_BOOST)
     effective_conf = min(max(raw_conf + boost, raw_conf), 0.99)
     return effective_conf, boost_applied
 
