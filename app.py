@@ -112,7 +112,7 @@ st.set_page_config(
     page_title="EcoCiudad CABA | Scanner IA & Puntos Verdes",
     page_icon="🌿",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -868,72 +868,16 @@ def get_ice_servers() -> list[dict]:
 
 
 @st.cache_resource(max_entries=1)
-def get_realtime_worker() -> dict:
+def get_stream_state() -> dict:
     """
-    Worker singleton persistente con un único hilo daemon durante toda la vida del servidor.
-    Evita crear nuevos threading.Thread por fotograma, eliminando la fuga de memoria
-    thread-local de OpenMP/MKL/PyTorch en Linux.
+    Estado persistente en memoria para el suavizado de cuadros en el flujo WebRTC continuo.
+    Permite mantener una alta tasa de cuadros (fps) sin retrasos de hilos ni desfase de coordenadas.
     """
-    state = {
+    return {
         "lock": threading.Lock(),
-        "event": threading.Event(),
-        "pending_frame": None,
-        "conf_thresh": 0.30,
-        "filter_people": True,
-        "feedback_store": None,
-        "cached_detections": [],
-        "history": [],
-        "last_infer_time": 0.0,
-        "infer_count": 0,
+        "last_time": 0.0,
+        "last_dets": [],
     }
-
-    def _worker_loop():
-        while True:
-            state["event"].wait()
-            state["event"].clear()
-            with state["lock"]:
-                frame_to_proc = state["pending_frame"]
-                state["pending_frame"] = None
-                conf_val = state["conf_thresh"]
-                filt_val = state["filter_people"]
-                fb_val = state["feedback_store"]
-            if frame_to_proc is None:
-                continue
-            try:
-                engine = load_cascade_engine()
-                _, detections = run_inference(
-                    engine,
-                    frame_to_proc,
-                    conf_threshold=conf_val,
-                    filter_people=filt_val,
-                    feedback_store=fb_val,
-                    imgsz=320,
-                    draw=False,
-                    enable_cascade_fallback=False,
-                )
-                with state["lock"]:
-                    hist = state["history"]
-                    hist.append(detections)
-                    if len(hist) > 3:
-                        hist.pop(0)
-                    if len(detections) == 1 and detections[0]["confianza"] < 0.52 and len(hist) >= 2:
-                        prev_dets = hist[-2]
-                        if prev_dets and prev_dets[0]["confianza"] >= 0.55:
-                            stable = dict(prev_dets[0])
-                            stable["bbox"] = detections[0]["bbox"]
-                            detections = [stable]
-                    state["cached_detections"] = detections
-            except Exception:
-                pass
-            finally:
-                del frame_to_proc
-                state["infer_count"] += 1
-                if state["infer_count"] % 8 == 0 or get_process_rss_bytes() > int(MAX_MEMORY_BYTES * 0.65):
-                    trim_memory()
-
-    worker_thread = threading.Thread(target=_worker_loop, name="EcoCiudad-Singleton-Worker", daemon=True)
-    worker_thread.start()
-    return state
 
 
 def process_and_cache_photo(uploaded_or_shot, conf_thresh: float, filter_people: bool, fb_store_data: dict) -> tuple[bytes, list[dict], str]:
@@ -1009,140 +953,114 @@ tab_live, tab_photo, tab_pv = st.tabs([
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════
-# TAB 1 — Cámara en Vivo (con soporte STUN/TURN + Modo Directo Anti-Firewall)
+# TAB 1 — Cámara en Vivo (Escáner Continuo en Tiempo Real)
 # ═══════════════════════════════════════════════════════════════════════════
 with tab_live:
     if "webrtc_nonce" not in st.session_state:
         st.session_state.webrtc_nonce = 0
 
-    col_mode_live, col_reset_live = st.columns([3.2, 1.0], gap="small")
-    with col_mode_live:
-        live_mode = st.radio(
-            "Modo de transmisión de cámara:",
-            [
-                "📹 Streaming Continuo (WebRTC con STUN/TURN)",
-                "📸 Cámara Rápida Anti-Bloqueo (Sin STUN/TURN · Ideal 4G / Bajo Consumo RAM)",
-            ],
-            horizontal=True,
-            help="Si tu operadora móvil (4G/5G) o red Wi-Fi bloquea conexiones UDP/STUN/TURN, o si minimizaste el navegador en el celular, elegí 'Cámara Rápida Anti-Bloqueo' o tocá 'Reiniciar Cámara'.",
-        )
+    col_info_live, col_reset_live = st.columns([3.6, 1.2], gap="small")
+    with col_info_live:
+        st.markdown("📱 **Escáner Continuo en Vivo:** Apuntá la cámara al residuo para identificarlo en tiempo real con recuadro y categoría.")
     with col_reset_live:
-        st.write("")
         if st.button("🔄 Reiniciar Cámara", key="btn_reset_webrtc", width="stretch", help="Reconecta el escáner si minimizaste el navegador o cambiaste de app en el celular."):
             st.session_state.webrtc_nonce += 1
-            worker_st = get_realtime_worker()
-            with worker_st["lock"]:
-                worker_st["cached_detections"] = []
-                worker_st["history"].clear()
+            stream_st = get_stream_state()
+            with stream_st["lock"]:
+                stream_st["last_dets"] = []
             st.rerun()
 
-    if "Streaming Continuo" in live_mode:
-        RTC_CONFIG = RTCConfiguration({"iceServers": get_ice_servers()})
+    RTC_CONFIG = RTCConfiguration({"iceServers": get_ice_servers()})
 
-        RTC_TRANSLATIONS = {
-            "start": "▶️ Iniciar Escáner",
-            "stop": "⏸️ Detener Escáner",
-            "select_device": "Seleccionar Cámara",
-            "select_camera": "Cámara",
-            "device_ask_permission": "Permití el acceso a la cámara para escanear.",
-            "device_not_available": "No se detectó cámara disponible.",
-            "device_access_denied": "Acceso a la cámara denegado.",
-        }
+    RTC_TRANSLATIONS = {
+        "start": "▶️ Iniciar Escáner",
+        "stop": "⏸️ Detener Escáner",
+        "select_device": "Seleccionar Cámara",
+        "select_camera": "Cámara",
+        "device_ask_permission": "Permití el acceso a la cámara para escanear.",
+        "device_not_available": "No se detectó cámara disponible.",
+        "device_access_denied": "Acceso a la cámara denegado.",
+    }
 
-        worker_state = get_realtime_worker()
-        with worker_state["lock"]:
-            worker_state["conf_thresh"] = CONF_THRESH
-            worker_state["filter_people"] = FILTER_PEOPLE
-            worker_state["feedback_store"] = fb_store
+    stream_state = get_stream_state()
+    engine = load_cascade_engine()
 
-        def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-            try:
-                now = time.time()
-                with worker_state["lock"]:
-                    current_dets = list(worker_state["cached_detections"])
-                    should_infer = (worker_state["pending_frame"] is None) and (now - worker_state["last_infer_time"] >= 0.45)
+    def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
+        try:
+            img_bgr = frame.to_ndarray(format="bgr24")
+            if is_frame_blank_or_dark(img_bgr):
+                with stream_state["lock"]:
+                    stream_state["last_dets"] = []
+                return frame
 
-                if not should_infer and not current_dets:
-                    return frame
+            now = time.time()
+            with stream_state["lock"]:
+                time_since_last = now - stream_state["last_time"]
+                current_dets = list(stream_state["last_dets"])
 
-                img_bgr = frame.to_ndarray(format="bgr24")
-                if is_frame_blank_or_dark(img_bgr):
-                    with worker_state["lock"]:
-                        worker_state["cached_detections"] = []
-                        worker_state["history"].clear()
-                    return frame
-
-                if should_infer:
-                    # Reducir resolución si el frame supera 480px de ancho para minimizar copia en RAM
-                    h_f, w_f = img_bgr.shape[:2]
-                    if w_f > 480:
-                        infer_frame = img_bgr[::2, ::2].copy()
-                    else:
-                        infer_frame = img_bgr.copy() if current_dets else img_bgr
-                    with worker_state["lock"]:
-                        worker_state["pending_frame"] = infer_frame
-                        worker_state["last_infer_time"] = now
-                    worker_state["event"].set()
-
+            # Inferencia completa a resolución nativa cada ~100 ms (hasta 10 fps) para máxima fluidez y precisión
+            if time_since_last >= 0.10 or not current_dets:
+                annotated, detections = run_inference(
+                    engine,
+                    img_bgr,
+                    conf_threshold=CONF_THRESH,
+                    filter_people=FILTER_PEOPLE,
+                    feedback_store=fb_store,
+                    imgsz=384,
+                    draw=True,
+                    in_place_draw=True,
+                    enable_cascade_fallback=True,
+                )
+                with stream_state["lock"]:
+                    stream_state["last_time"] = now
+                    stream_state["last_dets"] = detections
+                return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+            else:
+                # En fotogramas intermedios, redibujar las detecciones sobre la imagen actual sin desfase
                 if current_dets:
                     annotated = draw_detections(img_bgr, current_dets, in_place=True)
                     return av.VideoFrame.from_ndarray(annotated, format="bgr24")
                 return frame
-            except Exception:
-                return frame
+        except Exception:
+            return frame
 
-        webrtc_streamer(
-            key=f"stream-ecociudad-hybrid-{st.session_state.webrtc_nonce}",
-            mode=WebRtcMode.SENDRECV,
-            rtc_configuration=RTC_CONFIG,
-            video_frame_callback=video_frame_callback,
-            media_stream_constraints={
-                "video": {
-                    "width": {"ideal": 480, "max": 640},
-                    "height": {"ideal": 360, "max": 480},
-                    "facingMode": {"ideal": "environment"},
-                    "frameRate": {"ideal": 12, "max": 15},
-                },
-                "audio": False,
+    webrtc_streamer(
+        key=f"stream-ecociudad-continuous-{st.session_state.webrtc_nonce}",
+        mode=WebRtcMode.SENDRECV,
+        rtc_configuration=RTC_CONFIG,
+        video_frame_callback=video_frame_callback,
+        media_stream_constraints={
+            "video": {
+                "width": {"ideal": 480, "max": 640},
+                "height": {"ideal": 360, "max": 480},
+                "facingMode": {"ideal": "environment"},
+                "frameRate": {"ideal": 10, "max": 15},
             },
-            video_html_attrs={
-                "autoPlay": True,
-                "controls": True,
-                "muted": True,
-                "style": {
-                    "width": "100%",
-                    "maxWidth": "820px",
-                    "height": "460px",
-                    "minHeight": "440px",
-                    "maxHeight": "64vh",
-                    "aspectRatio": "4/3",
-                    "objectFit": "contain",
-                    "margin": "0 auto",
-                    "display": "block",
-                    "borderRadius": "10px",
-                    "backgroundColor": "#0F172A",
-                },
+            "audio": False,
+        },
+        video_html_attrs={
+            "autoPlay": True,
+            "controls": True,
+            "muted": True,
+            "style": {
+                "width": "100%",
+                "maxWidth": "820px",
+                "height": "460px",
+                "minHeight": "440px",
+                "maxHeight": "64vh",
+                "aspectRatio": "4/3",
+                "objectFit": "contain",
+                "margin": "0 auto",
+                "display": "block",
+                "borderRadius": "10px",
+                "backgroundColor": "#0F172A",
             },
-            desired_playing_state=None,
-            async_processing=True,
-            translations=RTC_TRANSLATIONS,
-        )
-        st.caption("💡 **¿Volviste de otra app en el celular o aparece aviso de STUN/TURN?** Tocá **'🔄 Reiniciar Cámara'** arriba a la derecha o cambiá a **'📸 Cámara Rápida Anti-Bloqueo'**.")
-    else:
-        st.info("⚡ **Modo Anti-Bloqueo STUN/TURN activo:** Este visor utiliza captura directa HTTPS del navegador, inmune a bloqueos de firewall/CGNAT 4G y a suspensiones al cambiar de app en el celular.")
-        live_quick_shot = st.camera_input("Enfocá el residuo y tocá el botón para escanear al instante:", key=f"cam_live_fallback_{st.session_state.webrtc_nonce}")
-        if live_quick_shot is not None:
-            q_jpeg, q_dets, _ = process_and_cache_photo(live_quick_shot, CONF_THRESH, FILTER_PEOPLE, fb_store)
-            c_l1, c_l2 = st.columns([1, 1], gap="medium")
-            with c_l1:
-                st.image(q_jpeg, width="stretch")
-            with c_l2:
-                if q_dets:
-                    st.session_state.ultimo_residuo = q_dets[0]
-                    for d_item in q_dets:
-                        st.success(f"**{d_item['emoji']} {d_item['label']}** ({d_item['confianza']:.0%})\n\n**Destino:** {d_item['tipo']}\n\n**Acción:** {d_item['accion']}")
-                else:
-                    st.warning("No se detectó ningún residuo claro con el umbral actual. Acercá el objeto al centro o usá la pestaña 'Subir Archivo / Foto' para asistencia manual.")
+        },
+        desired_playing_state=None,
+        async_processing=True,
+        translations=RTC_TRANSLATIONS,
+    )
+    st.caption("💡 **Consejo:** Apuntá de cerca al residuo bien iluminado. Si minimizás la app o cambiás de pestaña en el celular, tocá **'🔄 Reiniciar Cámara'**.")
 
 with tab_photo:
     if "uploader_nonce" not in st.session_state:
