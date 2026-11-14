@@ -541,13 +541,23 @@ WORLD_CLASSES = [
     # Textiles, Remeras, Mantas, Ropa doblada y Calzado / Zapatillas (para donacion o Punto Verde)
     "t-shirt", "folded shirt", "folded clothes", "blanket", "fleece", "fabric", "textile", "towel", "plush fabric", "pants", "jeans",
     "shoes", "shoe", "sneakers", "white sneakers", "canvas shoes", "tennis shoes", "running shoes", "pair of shoes", "footwear",
-    # Vapers, Baterias y RAEE (solo 2 prompts especificos para evitar el sesgo multi-prompt que clasificaba todo como vaper)
-    "disposable vape", "electronic cigarette",
+    # Vapers, Baterias y RAEE
+    "vape pen", "disposable vape", "electronic cigarette", "vape pod",
+    "vape", "box vape", "pod vape", "vape mod", "vape bar", "e-cigarette",
     "battery", "batteries", "aa battery", "aaa battery", "cylindrical battery", "alkaline battery", "duracell battery",
     "smartphone touchscreen", "tablet", "e-reader", "kindle", "laptop", "mouse", "keyboard",
     # Discos y Multicapa
     "compact disc", "cd", "tetra pak"
 ]
+
+
+def _inject_world_txt_feats(detector: YOLO, classes: list[str], txt_feats: torch.Tensor) -> None:
+    """Inyecta embeddings de texto precalculados en la cabeza YOLO-World v2."""
+    detector.model.txt_feats = txt_feats
+    detector.model.nc = len(classes)
+    if hasattr(detector.model, "model") and len(detector.model.model) > 0:
+        detector.model.model[-1].nc = len(classes)
+    detector.model.names = {i: c for i, c in enumerate(classes)}
 
 
 def _apply_or_cache_world_classes(detector: YOLO, classes: list[str]) -> None:
@@ -562,23 +572,28 @@ def _apply_or_cache_world_classes(detector: YOLO, classes: list[str]) -> None:
         Path("models/world_txt_feats.pt"),
         Path(tempfile.gettempdir()) / "ecociudad_world_txt_feats.pt",
     ]
+    stale_cached = None
     for c_path in cache_candidates:
         if c_path.exists():
             try:
                 cached = torch.load(str(c_path), map_location="cpu", weights_only=False)
-                if isinstance(cached, dict) and cached.get("classes") == classes and "txt_feats" in cached:
-                    txt_feats = cached["txt_feats"]
-                    detector.model.txt_feats = txt_feats
-                    detector.model.nc = len(classes)
-                    if hasattr(detector.model, "model") and len(detector.model.model) > 0:
-                        detector.model.model[-1].nc = len(classes)
-                    detector.model.names = {i: c for i, c in enumerate(classes)}
-                    return
+                if isinstance(cached, dict) and "txt_feats" in cached and isinstance(cached.get("classes"), list):
+                    if cached.get("classes") == classes:
+                        _inject_world_txt_feats(detector, classes, cached["txt_feats"])
+                        return
+                    if stale_cached is None:
+                        stale_cached = cached
             except Exception:
                 pass
 
-    # Si no existe cache, calcular con CLIP una unica vez y guardar
-    detector.set_classes(classes)
+    # Si no existe cache actualizado, calcular con CLIP una unica vez y guardar
+    try:
+        detector.set_classes(classes)
+    except Exception:
+        if stale_cached is not None:
+            _inject_world_txt_feats(detector, stale_cached["classes"], stale_cached["txt_feats"])
+            return
+        raise
     if hasattr(detector, "model") and hasattr(detector.model, "txt_feats"):
         payload = {
             "classes": list(classes),
@@ -803,10 +818,100 @@ def analyze_spatial_and_hand_context(frame_bgr: np.ndarray, bbox: tuple[int, int
     return is_held_in_center, center_score, hand_detected
 
 
+def _label_overlap_area(cand: tuple[int, int, int, int], occupied: list[tuple[int, int, int, int]], pad: int = 2) -> int:
+    """Calcula el area total de solapamiento de una etiqueta candidata con etiquetas ya ubicadas."""
+    cx1, cy1, cx2, cy2 = cand[0] - pad, cand[1] - pad, cand[2] + pad, cand[3] + pad
+    total = 0
+    for ox1, oy1, ox2, oy2 in occupied:
+        ix = min(cx2, ox2) - max(cx1, ox1)
+        iy = min(cy2, oy2) - max(cy1, oy1)
+        if ix > 0 and iy > 0:
+            total += ix * iy
+    return total
+
+
+def _place_label_rect(
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    lbl_w: int,
+    lbl_h: int,
+    w_img: int,
+    h_img: int,
+    occupied: list[tuple[int, int, int, int]],
+) -> tuple[int, int, int, int]:
+    """
+    Ubica la etiqueta de una deteccion buscando una posicion legible y cercana a su recuadro
+    sin superponerse con etiquetas previas.
+    """
+    eff_w = min(lbl_w, max(20, w_img - 4))
+    eff_h = min(lbl_h, max(14, h_img - 4))
+    max_x = max(2, w_img - eff_w - 2)
+    max_y = max(2, h_img - eff_h - 2)
+
+    def make_rect(lx: int, ly: int) -> tuple[int, int, int, int]:
+        cx = max(2, min(max_x, int(lx)))
+        cy = max(2, min(max_y, int(ly)))
+        return (cx, cy, cx + eff_w, cy + eff_h)
+
+    candidates: list[tuple[int, int, int, int]] = []
+    if y1 - eff_h - 2 >= 2:
+        candidates.append(make_rect(x1, y1 - eff_h - 2))
+    candidates.append(make_rect(x1 + 2, y1 + 2))
+    if y1 - eff_h - 2 >= 2:
+        candidates.append(make_rect(x2 - eff_w - 2, y1 - eff_h - 2))
+    candidates.append(make_rect(x2 - eff_w - 2, y1 + 2))
+    if y2 + eff_h + 2 <= h_img - 2:
+        candidates.append(make_rect(x1 + 2, y2 + 2))
+        candidates.append(make_rect(x2 - eff_w - 2, y2 + 2))
+    if y2 - eff_h - 2 >= 2:
+        candidates.append(make_rect(x1 + 2, y2 - eff_h - 2))
+        candidates.append(make_rect(x2 - eff_w - 2, y2 - eff_h - 2))
+
+    # Escalonamiento vertical dentro/cerca de la caja (evita choques cuando comparten borde superior)
+    step_y = eff_h + 4
+    for step in range(1, 8):
+        down_y = y1 + 2 + step * step_y
+        if 2 <= down_y <= max_y:
+            candidates.append(make_rect(x1 + 2, down_y))
+            candidates.append(make_rect(x2 - eff_w - 2, down_y))
+        up_y = y1 - eff_h - 2 - step * step_y
+        if 2 <= up_y <= max_y:
+            candidates.append(make_rect(x1 + 2, up_y))
+            candidates.append(make_rect(x2 - eff_w - 2, up_y))
+
+    # Desplazamiento horizontal cercano en la misma franja si la caja es vecina a otra
+    anchor_y = max(2, min(max_y, y1 - eff_h - 2 if y1 - eff_h - 2 >= 2 else y1 + 2))
+    box_span = max(eff_w, x2 - x1)
+    for ox1, oy1, ox2, oy2 in occupied:
+        if oy1 < anchor_y + eff_h + 2 and oy2 > anchor_y - 2:
+            if ox2 + 4 <= max_x and abs((ox2 + 4) - x1) <= box_span:
+                candidates.append(make_rect(ox2 + 4, anchor_y))
+            if ox1 - eff_w - 4 >= 2 and abs((ox1 - eff_w - 4) - x1) <= box_span:
+                candidates.append(make_rect(ox1 - eff_w - 4, anchor_y))
+
+    # Respaldo de grilla completa por si hay muchas detecciones en pantalla chica
+    for gy in range(2, max_y + 1, max(8, step_y)):
+        for gx in (x1 + 2, x2 - eff_w - 2, 2, max_x):
+            candidates.append(make_rect(gx, gy))
+
+    best_rect = candidates[0] if candidates else make_rect(x1, y1)
+    best_overlap = None
+    for cand in candidates:
+        overlap = _label_overlap_area(cand, occupied)
+        if overlap == 0:
+            return cand
+        if best_overlap is None or overlap < best_overlap:
+            best_overlap = overlap
+            best_rect = cand
+    return best_rect
+
+
 def draw_detections(frame_bgr: np.ndarray, detections: list[dict], in_place: bool = False) -> np.ndarray:
     """
-    Dibuja rectangulos delimitadores y etiquetas sobre el frame BGR con escalado dinamico
-    segun resolucion y tamano minimo garantizado para que nunca queden invisibles.
+    Dibuja rectangulos delimitadores y etiquetas sin superposicion sobre el frame BGR
+    con escalado dinamico segun resolucion y tamano minimo garantizado.
     """
     if not detections:
         return frame_bgr
@@ -817,8 +922,9 @@ def draw_detections(frame_bgr: np.ndarray, detections: list[dict], in_place: boo
     c_thick = max(3, int(round(2.8 * scale)))
     font_scale = max(0.50, round(0.48 * scale, 2))
     font_thick = max(1, int(round(1.2 * scale)))
+    min_box_px = max(36, int(min(w_img, h_img) * 0.08))
 
-    annotated = frame_bgr if in_place else frame_bgr.copy()
+    render_items = []
     for det in detections:
         info = get_waste_info(det["clase"])
         if info is None:
@@ -827,7 +933,6 @@ def draw_detections(frame_bgr: np.ndarray, detections: list[dict], in_place: boo
         x1, y1, x2, y2 = det["bbox"]
 
         # Garantizar tamano visual minimo del recuadro (>= 36x36 px) para que nunca sea una rayita invisible
-        min_box_px = max(36, int(min(w_img, h_img) * 0.08))
         if (x2 - x1) < min_box_px:
             cx = (x1 + x2) // 2
             x1 = max(2, cx - min_box_px // 2)
@@ -840,46 +945,69 @@ def draw_detections(frame_bgr: np.ndarray, detections: list[dict], in_place: boo
         clean_label = det["label"].encode("ascii", "ignore").decode("ascii") or det["clase"]
         star = " *" if det.get("boost_applied", False) else ""
         label_text = f"{clean_label} {det['confianza']:.0%}{star}"
+        render_items.append((x1, y1, x2, y2, color, label_text))
 
-        if HAS_CV2 and cv2 is not None:
-            # Marco visible
+    if not render_items:
+        return frame_bgr
+
+    annotated = frame_bgr if in_place else frame_bgr.copy()
+    occupied_label_rects: list[tuple[int, int, int, int]] = []
+
+    if HAS_CV2 and cv2 is not None:
+        # 1) Dibujar todos los marcos primero para que ninguna esquina tape una etiqueta
+        for x1, y1, x2, y2, color, _ in render_items:
             cv2.rectangle(annotated, (x1, y1), (x2, y2), color, rect_thick)
-
-            # Esquinas destacadas estilo scanner / visor tecnologico
             box_w = x2 - x1
             box_h = y2 - y1
             c_len = max(16, min(int(32 * scale), box_w // 4, box_h // 4))
-            # Top-left
             cv2.line(annotated, (x1, y1), (x1 + c_len, y1), color, c_thick)
             cv2.line(annotated, (x1, y1), (x1, y1 + c_len), color, c_thick)
-            # Top-right
             cv2.line(annotated, (x2, y1), (x2 - c_len, y1), color, c_thick)
             cv2.line(annotated, (x2, y1), (x2, y1 + c_len), color, c_thick)
-            # Bottom-left
             cv2.line(annotated, (x1, y2), (x1 + c_len, y2), color, c_thick)
             cv2.line(annotated, (x1, y2), (x1, y2 - c_len), color, c_thick)
-            # Bottom-right
             cv2.line(annotated, (x2, y2), (x2 - c_len, y2), color, c_thick)
             cv2.line(annotated, (x2, y2), (x2, y2 - c_len), color, c_thick)
 
-            # Etiqueta limpia con fondo solido
+        # 2) Ubicar etiquetas con layout anti-colision
+        pad_v = max(6, int(6 * scale))
+        for x1, y1, x2, y2, color, label_text in render_items:
             (tw, th), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, font_thick)
-            pad_v = max(6, int(6 * scale))
-            top_y = max(y1, th + pad_v + 4)
-            lbl_x2 = min(w_img - 2, x1 + tw + 10)
-            cv2.rectangle(annotated, (x1, top_y - th - pad_v - 2), (lbl_x2, top_y), color, -1)
-            cv2.putText(annotated, label_text, (x1 + 5, top_y - 4),
-                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), font_thick, cv2.LINE_AA)
-        else:
-            from PIL import Image as _PILImg, ImageDraw as _PILDraw
-            pil_temp = _PILImg.fromarray(annotated[:, :, ::-1])
-            draw = _PILDraw.Draw(pil_temp)
+            lbl_w = tw + 10
+            lbl_h = th + pad_v + 2
+            lx1, ly1, lx2, ly2 = _place_label_rect(
+                x1, y1, x2, y2, lbl_w, lbl_h, w_img, h_img, occupied_label_rects
+            )
+            occupied_label_rects.append((lx1, ly1, lx2, ly2))
+            cv2.rectangle(annotated, (lx1, ly1), (lx2, ly2), color, -1)
+            cv2.putText(
+                annotated,
+                label_text,
+                (lx1 + 5, ly2 - 4),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (255, 255, 255),
+                font_thick,
+                cv2.LINE_AA,
+            )
+    else:
+        from PIL import Image as _PILImg, ImageDraw as _PILDraw
+        pil_temp = _PILImg.fromarray(annotated[:, :, ::-1])
+        draw = _PILDraw.Draw(pil_temp)
+        for x1, y1, x2, y2, color, _ in render_items:
             rgb_col = (color[2], color[1], color[0]) if len(color) == 3 else color
             draw.rectangle([x1, y1, x2, y2], outline=rgb_col, width=max(2, rect_thick))
+        for x1, y1, x2, y2, color, label_text in render_items:
+            rgb_col = (color[2], color[1], color[0]) if len(color) == 3 else color
             lbl_w = len(label_text) * 7 + 8
-            draw.rectangle([x1, max(0, y1 - 20), min(w_img, x1 + lbl_w), y1], fill=rgb_col)
-            draw.text((x1 + 4, max(0, y1 - 18)), label_text, fill=(255, 255, 255))
-            annotated = np.array(pil_temp)[:, :, ::-1].copy()
+            lbl_h = 20
+            lx1, ly1, lx2, ly2 = _place_label_rect(
+                x1, y1, x2, y2, lbl_w, lbl_h, w_img, h_img, occupied_label_rects
+            )
+            occupied_label_rects.append((lx1, ly1, lx2, ly2))
+            draw.rectangle([lx1, ly1, lx2, ly2], fill=rgb_col)
+            draw.text((lx1 + 4, ly1 + 2), label_text, fill=(255, 255, 255))
+        annotated = np.array(pil_temp)[:, :, ::-1].copy()
 
     return annotated
 
@@ -899,8 +1027,8 @@ def _detect_bounding_boxes(
     h_img, w_img = frame_bgr.shape[:2]
     frame_area = w_img * h_img
 
-    # Umbral interno reducido para no perder objetos chicos en mano (pilas AA/AAA, marcadores, papeles, tijeras)
-    query_conf = min(conf_threshold, 0.14)
+    # Umbral interno reducido para no perder objetos chicos en mano (pilas AA/AAA, vapers/pods, marcadores, papeles, tijeras)
+    query_conf = min(conf_threshold, 0.12)
     with _INFERENCE_LOCK, torch.inference_mode():
         results = detector(frame_bgr, conf=query_conf, imgsz=imgsz, verbose=False)[0]
 
@@ -916,13 +1044,16 @@ def _detect_bounding_boxes(
     del results
     _clear_predictor_memory(detector)
 
-    # Paso 1: Registrar ubicaciones de rostros, anteojos, personas, pilas y utiles/botellas para desambiguar
+    # Paso 1: Registrar ubicaciones de rostros, anteojos, personas, pilas, vapers y utiles/botellas para desambiguar
     face_or_glasses_boxes = []
     person_boxes = []
     has_person_or_clothes = False
     bottle_or_cap_boxes = []
     marker_or_pen_boxes = []
     battery_boxes = []
+    vape_boxes = []
+    box_or_cardboard_boxes = []
+    glass_boxes = []
     for cls_id, c_score, xyxy in boxes_list:
         c_name = detector.names[cls_id].lower()
         if any(k in c_name for k in ("face", "head", "eyeglasses", "glasses", "spectacles")) and "case" not in c_name:
@@ -932,15 +1063,25 @@ def _detect_bounding_boxes(
             person_boxes.append(xyxy)
         if any(k in c_name for k in ("bottle", "plastic cap", "plastic lid", "nail polish", "perfume", "cosmetic", "jar")) and c_score >= 0.16:
             bottle_or_cap_boxes.append((c_name, c_score, xyxy))
-        if any(k in c_name for k in ("marker", "sharpie", "pen", "highlighter", "felt tip", "pencil", "scissors")) and c_score >= 0.16:
+        if any(k in c_name for k in ("marker", "sharpie", "pen", "highlighter", "felt tip", "pencil", "scissors")) and "vape" not in c_name and c_score >= 0.16:
             marker_or_pen_boxes.append((c_name, c_score, xyxy))
         if any(k in c_name for k in ("battery", "batteries", "duracell")) and c_score >= 0.14:
             battery_boxes.append((c_name, c_score, xyxy))
+        if any(k in c_name for k in ("vape", "electronic cigarette", "e-cigarette", "box mod")) and c_score >= 0.12:
+            vape_boxes.append((c_name, c_score, xyxy))
+        if any(k in c_name for k in ("cardboard", "shoebox", "packaging box", "corrugated")) and c_score >= 0.18:
+            box_or_cardboard_boxes.append((c_name, c_score, xyxy))
+        if any(k in c_name for k in ("drinking glass", "glass cup", "wine glass", "glass bottle", "small glass bottle")) and c_score >= 0.18:
+            glass_boxes.append((c_name, c_score, xyxy))
 
     _SENSITIVE_SMALL_CLASSES = {
         "battery", "batteries", "aa battery", "aaa battery", "cylindrical battery", "alkaline battery", "duracell battery",
+        "vape", "vape pen", "disposable vape", "electronic cigarette", "e-cigarette", "vape pod",
+        "box vape", "pod vape", "vape mod", "vape bar", "vape device", "box mod",
         "scissors", "pair of scissors", "metal scissors",
         "eyeglasses case", "glasses case", "hard case",
+        "drinking glass", "glass cup", "glass bottle", "wine glass", "glass",
+        "cup", "plastic cup", "disposable cup",
         "marker", "marker pen", "permanent marker", "sharpie marker", "felt tip pen", "highlighter pen",
         "pen", "plastic pen", "ballpoint pen",
         "nail polish bottle", "perfume bottle", "small glass bottle", "cosmetic bottle", "dropper bottle", "serum bottle",
@@ -957,9 +1098,11 @@ def _detect_bounding_boxes(
     for cls_id, conf, bbox in boxes_list:
         cls_name = detector.names[cls_id].lower()
 
-        # Aplicar umbral por clase (permitir pilas desde 0.15, otros objetos chicos/especificos desde 0.18, resto segun conf_threshold)
+        # Aplicar umbral por clase (permitir pilas y vapers desde 0.14-0.15, otros objetos chicos desde 0.18, resto segun conf_threshold)
         if "battery" in cls_name or "batteries" in cls_name:
             min_allowed_conf = min(conf_threshold, 0.15)
+        elif "vape" in cls_name or cls_name in ("electronic cigarette", "e-cigarette", "box mod"):
+            min_allowed_conf = min(conf_threshold, 0.14)
         elif cls_name in _SENSITIVE_SMALL_CLASSES:
             min_allowed_conf = min(conf_threshold, 0.18)
         else:
@@ -1039,32 +1182,39 @@ def _detect_bounding_boxes(
 
         is_held_in_center, center_score, hand_detected = analyze_spatial_and_hand_context(frame_bgr, bbox)
 
+        def _best_overlap(candidates, min_ratio: float = 0.0, name_pred=None):
+            best_n, best_s = None, 0.0
+            box_area = float(max(1, bw * bh))
+            for cand_n, cand_s, cand_xyxy in candidates:
+                if name_pred is not None and not name_pred(cand_n):
+                    continue
+                ix1, iy1 = max(x1, cand_xyxy[0]), max(y1, cand_xyxy[1])
+                ix2, iy2 = min(x2, cand_xyxy[2]), min(y2, cand_xyxy[3])
+                if ix2 > ix1 and iy2 > iy1:
+                    inter = (ix2 - ix1) * (iy2 - iy1)
+                    if (inter / box_area) >= min_ratio and cand_s > best_s:
+                        best_n, best_s = cand_n, cand_s
+            return best_n, best_s
+
         # Desambiguacion de Pilas Cilindricas (AA / AAA / Duracell / Energizer) confundidas con Botella, Lata, Termo o Vaper:
         # En primeros planos o fotos de producto (ej. pila vertical grande con borne '+' saliente arriba), YOLO-World suele
         # disparar 'bottle'/'thermos'/'can' con ~40%-50% por su silueta cilindrica y tapa/borne superior, pisando la deteccion de 'battery'.
         if cls_name in (
             "bottle", "plastic bottle", "clear plastic bottle", "water bottle", "soda bottle", "juice bottle", "pet bottle",
             "thermos", "can", "aluminum can", "tin can", "soda can", "beverage can", "drink can", "spray can", "aerosol can",
-            "disposable vape", "electronic cigarette"
+            "vape", "vape pen", "disposable vape", "electronic cigarette", "e-cigarette", "vape pod", "vape bar"
         ):
-            overlaps_battery = False
-            best_bat_score = 0.0
-            for b_cls, b_score, b_xyxy in battery_boxes:
-                ix1, iy1 = max(x1, b_xyxy[0]), max(y1, b_xyxy[1])
-                ix2, iy2 = min(x2, b_xyxy[2]), min(y2, b_xyxy[3])
-                if ix2 > ix1 and iy2 > iy1:
-                    inter = (ix2 - ix1) * (iy2 - iy1)
-                    if inter / float(max(1, bw * bh)) > 0.25 and b_score >= 0.14:
-                        overlaps_battery = True
-                        best_bat_score = max(best_bat_score, b_score)
+            _, best_bat_score = _best_overlap(battery_boxes, min_ratio=0.25)
+            aspect_cyl = max(bw, bh) / float(max(1, min(bw, bh)))
+            min_bat_override = 0.14 if aspect_cyl >= 2.2 or "vape" not in cls_name else conf * 0.90
+            overlaps_battery = best_bat_score >= min_bat_override
+
             # Ademas, si es un cilindro esbelto (aspect >= 2.6) con patron bicolor tipico de pila alcalina (cobre/dorado + cuerpo negro/oscuro)
             is_bicolor_battery = False
-            aspect_cyl = max(bw, bh) / float(max(1, min(bw, bh)))
             if not overlaps_battery and aspect_cyl >= 2.6 and conf < 0.58 and HAS_CV2 and cv2 is not None:
                 roi_bat = frame_bgr[max(0, y1):min(h_img, y2), max(0, x1):min(w_img, x2)]
                 if roi_bat.size > 0:
                     hsv_bat = cv2.cvtColor(roi_bat, cv2.COLOR_BGR2HSV)
-                    # Cobre/dorado (H: 8..26, S: 65..255, V: 70..255) y negro/oscuro (V < 65)
                     copper_mask = cv2.inRange(hsv_bat, np.array([8, 65, 70], dtype=np.uint8), np.array([26, 255, 255], dtype=np.uint8))
                     dark_mask = hsv_bat[:, :, 2] < 65
                     px_total = float(roi_bat.shape[0] * roi_bat.shape[1])
@@ -1076,43 +1226,60 @@ def _detect_bounding_boxes(
                 cls_name = "battery"
                 conf = max(conf, best_bat_score)
 
-        # Desambiguacion estricta Anti-Sesgo Vaper vs Cajas, Marcadores y Envases Cosmeticos:
-        # YOLO-World tiende a disparar 'vape' con 35%-55% en cajas oscuras (box mod), marcadores (Sharpie) o frascos con tapa larga (quitaesmalte/esmalte).
-        if "vape" in cls_name or "cigarette" in cls_name:
-            # 1) Si el objeto es grande (area_ratio > 0.22, como una caja de zapatillas o envase grande en primer plano), NUNCA es un vaper
-            if area_ratio > 0.22:
+        # Desambiguacion de Vaper / Cigarrillo Electronico (vape pen o box pod en mano) cuando YOLO-World lo confunde con botella, encendedor o cajita:
+        promoted_to_vape = False
+        if cls_name in (
+            "bottle", "plastic bottle", "clear plastic bottle", "water bottle", "soda bottle", "juice bottle", "pet bottle", "thermos",
+            "cosmetic bottle", "nail polish bottle", "perfume bottle", "small glass bottle", "dropper bottle", "serum bottle",
+            "lotion bottle", "cream bottle", "lighter", "cigarette lighter", "plastic lighter",
+            "plastic box", "small cardboard box", "cosmetic box", "medicine box", "eyeglasses case", "hard case"
+        ):
+            aspect_v = bh / float(max(1, bw))
+            best_vape_cls, best_vape_score = _best_overlap(vape_boxes, min_ratio=0.30)
+            overlaps_vape = best_vape_score >= 0.16
+            is_pen_vape = (
+                cls_name in ("bottle", "plastic bottle", "clear plastic bottle", "water bottle", "soda bottle", "juice bottle", "pet bottle", "thermos")
+                and ((overlaps_vape and aspect_v >= 2.6 and area_ratio < 0.10) or (aspect_v >= 3.4 and area_ratio < 0.085 and hand_detected and conf < 0.58))
+            )
+            min_pod_ratio = 0.65 if cls_name in (
+                "lighter", "cigarette lighter", "plastic lighter", "plastic box",
+                "small cardboard box", "cosmetic box", "medicine box", "eyeglasses case", "hard case"
+            ) else 0.90
+            is_box_vape = (
+                hand_detected
+                and area_ratio < 0.28
+                and best_vape_score >= max(0.14, conf * min_pod_ratio)
+            )
+            if is_pen_vape or is_box_vape:
+                cls_name = best_vape_cls or "vape pod"
+                conf = max(conf, best_vape_score)
+                promoted_to_vape = True
+
+        # Desambiguacion Anti-Sesgo Vaper vs Cajas grandes, Marcadores, Frascos Cosmeticos y Vidrio real:
+        # Conserva proteccion para cajas de zapatillas (> 34% pantalla o solapando carton), marcadores y esmaltes reales,
+        # sin descartar vapers/pods rectangulares compactos sostenidos en la mano.
+        if not promoted_to_vape and ("vape" in cls_name or cls_name in ("electronic cigarette", "e-cigarette", "box mod")):
+            _, marker_score = _best_overlap(marker_or_pen_boxes, min_ratio=0.20)
+            cosm_cls, cosm_score = _best_overlap(
+                bottle_or_cap_boxes,
+                min_ratio=0.20,
+                name_pred=lambda b: any(k in b for k in ("nail polish", "perfume", "small glass", "dropper", "serum", "cosmetic")),
+            )
+            glass_cls, glass_score = _best_overlap(glass_boxes, min_ratio=0.30)
+            _, box_score = _best_overlap(box_or_cardboard_boxes, min_ratio=0.20)
+
+            if area_ratio > 0.34:
                 cls_name = "cardboard box"
-            else:
-                overlaps_marker = False
-                for m_name, m_score, m_xyxy in marker_or_pen_boxes:
-                    ix1, iy1 = max(x1, m_xyxy[0]), max(y1, m_xyxy[1])
-                    ix2, iy2 = min(x2, m_xyxy[2]), min(y2, m_xyxy[3])
-                    if ix2 > ix1 and iy2 > iy1 and m_score >= conf * 0.35:
-                        overlaps_marker = True
-                        break
-                overlaps_cosmetic = False
-                matched_cosmetic_cls = "nail polish bottle"
-                for b_name, b_score, b_xyxy in bottle_or_cap_boxes:
-                    ix1, iy1 = max(x1, b_xyxy[0]), max(y1, b_xyxy[1])
-                    ix2, iy2 = min(x2, b_xyxy[2]), min(y2, b_xyxy[3])
-                    if ix2 > ix1 and iy2 > iy1 and b_score >= conf * 0.35:
-                        overlaps_cosmetic = True
-                        if any(k in b_name for k in ("nail polish", "perfume", "small glass", "dropper", "serum", "cosmetic")):
-                            matched_cosmetic_cls = b_name
-                        break
-                if overlaps_marker:
-                    cls_name = "marker"
-                elif overlaps_cosmetic:
-                    cls_name = matched_cosmetic_cls
-                elif conf < 0.65:
-                    # Exigir alta certeza (>= 65%) para diagnosticar Vaper; si es menor, reclasificar segun su geometria real:
-                    aspect_obj = max(bw, bh) / float(max(1, min(bw, bh)))
-                    if aspect_obj >= 2.5:
-                        cls_name = "marker"
-                    elif area_ratio >= 0.14 or bw >= bh * 0.85:
-                        cls_name = "cardboard box"
-                    else:
-                        cls_name = "nail polish bottle"
+            elif marker_score >= conf * 0.85:
+                cls_name = "marker"
+            elif cosm_score >= conf * 0.82:
+                cls_name = cosm_cls
+            elif glass_score >= max(0.22, conf * 0.85) and conf < 0.30:
+                cls_name = glass_cls
+            elif (area_ratio > 0.25 and not hand_detected and conf < 0.45) or (box_score >= conf * 0.82 and area_ratio > 0.16):
+                cls_name = "cardboard box"
+            elif conf < 0.16 and not hand_detected and not is_held_in_center:
+                continue
 
         # Desambiguacion de Cajas grandes / Cajas de zapatillas en primer plano vs Laptop:
         # Cuando se enfoca muy de cerca una caja negra/oscura (area_ratio > 0.35), YOLO-World suele llamarla 'laptop' con baja confianza (< 0.55).
@@ -1341,6 +1508,20 @@ def _classify_focal_center(
     top1_id = int(np.argmax(p_combined))
     top1_conf = float(p_combined[top1_id])
     raw_top1_cls = classifier.names[top1_id].lower()
+
+    # Evitar falsos positivos de 'glass' (~90%+) cuando el clasificador secundario evalua dispositivos
+    # electronicos / vapers opacos bicolores (cuerpo blanco mate + franja/boquilla negra) sostenidos en la mano.
+    if raw_top1_cls == "glass" and (skin_ratio > 0.05 or hand_detected) and HAS_CV2 and cv2 is not None and center_crop.size > 0:
+        hsv_obj = cv2.cvtColor(center_crop, cv2.COLOR_BGR2HSV)
+        obj_px = float(max(1, center_crop.shape[0] * center_crop.shape[1]))
+        white_ratio = np.count_nonzero((hsv_obj[:, :, 1] < 32) & (hsv_obj[:, :, 2] > 195)) / obj_px
+        dark_ratio = np.count_nonzero((hsv_obj[:, :, 1] < 75) & (hsv_obj[:, :, 2] < 55)) / obj_px
+        del hsv_obj
+        if white_ratio >= 0.28 and dark_ratio >= 0.14 and (white_ratio + dark_ratio) >= 0.52:
+            p_combined[top1_id] = 0.0
+            top1_id = int(np.argmax(p_combined))
+            top1_conf = float(p_combined[top1_id])
+            raw_top1_cls = classifier.names[top1_id].lower()
 
     # Si la clase dominante es ropa/calzado y hay piel/mano o confianza baja, descartar
     if raw_top1_cls in ("clothes", "shoes") and (skin_ratio > 0.03 or hand_detected or top1_conf < 0.46):
